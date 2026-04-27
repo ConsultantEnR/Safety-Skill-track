@@ -34,7 +34,7 @@ jobs:
         run: pip install pg8000 -q
 
       - name: Clean public schema (drop legacy tables, views, types)
-        run: python ../../scripts/db-clean.py
+        run: python ../scripts/db-clean.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
