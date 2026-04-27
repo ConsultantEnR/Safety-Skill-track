@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PageShell from "../../components/PageShell";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
@@ -195,7 +196,7 @@ export default function ParticipantDashboard() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} />
-      <main className="flex-1 overflow-y-auto p-8">
+      <PageShell>
         {/* Salutation */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">
@@ -341,7 +342,7 @@ export default function ParticipantDashboard() {
             </div>
           </div>
         )}
-      </main>
+      </PageShell>
 
       {/* FAB Besoin d'aide */}
       <button

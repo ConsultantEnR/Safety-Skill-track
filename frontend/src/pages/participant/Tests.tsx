@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import PageShell from "../../components/PageShell";
 import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
 import ParticipantSidebar from "./Sidebar";
@@ -790,7 +791,7 @@ export default function ParticipantTests() {
               accessToken={accessToken!}
             />
           </div>
-        </main>
+        </PageShell>
       </div>
     );
   }
@@ -813,7 +814,7 @@ export default function ParticipantTests() {
         logoUrl={logoUrl}
         companyName={companyName}
       />
-      <main className="flex-1 overflow-y-auto p-8">
+      <PageShell>
         <h1 className="text-2xl font-bold text-gray-800 mb-6">{t("myTests")}</h1>
 
         {/* Modal résultats */}
@@ -1036,7 +1037,7 @@ export default function ParticipantTests() {
             )}
           </div>
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }

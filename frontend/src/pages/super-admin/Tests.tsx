@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PageShell from "../../components/PageShell";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
@@ -293,7 +294,7 @@ export default function SuperAdminTests() {
             </div>
           )}
         </div>
-      </main>
+      </PageShell>
 
       {showModal && (
         <Modal title={editingTest ? t("editTest") : t("createTest")} onClose={() => setShowModal(false)} wide> {/* ITER9 */}

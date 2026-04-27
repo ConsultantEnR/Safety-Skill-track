@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PageShell from "../../components/PageShell";
 import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
 import ParticipantSidebar from "./Sidebar";
@@ -117,7 +118,7 @@ export default function ParticipantProfile() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} />
-      <main className="flex-1 overflow-y-auto p-8">
+      <PageShell>
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">{t("myInfo")}</h1> {/* ITER9 */}
           <p className="text-gray-500 mt-1">Consultez votre profil et modifiez votre mot de passe.</p>
@@ -241,7 +242,7 @@ export default function ParticipantProfile() {
             </form>
           </div>
         </div>
-      </main>
+      </PageShell>
 
       {/* Modal Besoin d'aide */}
       {showHelpModal && (

@@ -1,6 +1,7 @@
 // ITER8: Page "Réponses à analyser" Super Admin — liste et correction des réponses OPEN/SCENARIO
 // ITER9: Ajout filtres hiérarchiques thème/sous-thème, filtre salarié, i18n complet
 import React, { useEffect, useState } from "react";
+import PageShell from "../../components/PageShell";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
@@ -207,7 +208,7 @@ export default function SuperAdminResponses() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
+      <PageShell>
         {/* En-tête */}
         <h1 className="text-2xl font-bold mb-6" style={{ color: SA_PRIMARY }}>
           {t("responsesToReview")}
@@ -395,7 +396,7 @@ export default function SuperAdminResponses() {
             </table>
           )}
         </div>
-      </main>
+      </PageShell>
 
       {/* ITER8+ITER9: Modal d'analyse — ITER11: read-only si viewOnly */}
       {selected && (

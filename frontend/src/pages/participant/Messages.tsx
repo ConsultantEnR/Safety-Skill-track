@@ -1,5 +1,6 @@
 // ITER7: Page Messages participant — liste + envoi de messages vers l'Admin Client
 import React, { useEffect, useState } from "react";
+import PageShell from "../../components/PageShell";
 import { useAuth } from "../../contexts/AuthContext";
 import ParticipantSidebar from "./Sidebar";
 import { resolveAssetUrl } from "../../lib/runtime";
@@ -127,7 +128,7 @@ export default function ParticipantMessages() {
         companyName={companyName}
       />
 
-      <main className="flex-1 overflow-y-auto p-8">
+      <PageShell>
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -211,7 +212,7 @@ export default function ParticipantMessages() {
             ))}
           </div>
         )}
-      </main>
+      </PageShell>
 
       {/* ITER7: Modal nouveau message */}
       {showModal && (

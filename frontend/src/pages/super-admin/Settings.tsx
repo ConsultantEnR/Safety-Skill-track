@@ -1,6 +1,7 @@
 // ITER8: Ajout des sections mot de passe, identifiant et logo SA indépendant
 // ITER9: i18n complet + section changement d'e-mail
 import React, { useEffect, useState } from "react";
+import PageShell from "../../components/PageShell";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../contexts/AuthContext";
 import { useBranding } from "../../contexts/BrandingContext";
@@ -211,7 +212,7 @@ export default function SuperAdminSettings() {
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-gray-400">{t("loading")}</div>
-        </main>
+        </PageShell>
       </div>
     );
   }
@@ -219,7 +220,7 @@ export default function SuperAdminSettings() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
+      <PageShell>
         <h1 className="text-2xl font-bold mb-6" style={{ color: branding.primaryColor }}>
           {t("platformSettings")}
         </h1>
@@ -484,7 +485,7 @@ export default function SuperAdminSettings() {
             </button>
           </div>
         </form>
-      </main>
+      </PageShell>
     </div>
   );
 }

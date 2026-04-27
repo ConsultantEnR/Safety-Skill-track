@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PageShell from "../../components/PageShell";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../contexts/AuthContext";
 import { useBranding } from "../../contexts/BrandingContext";
@@ -147,7 +148,7 @@ export default function AdminSettings() {
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-gray-400">{t("loading")}</div>
-        </main>
+        </PageShell>
       </div>
     );
   }
@@ -155,7 +156,7 @@ export default function AdminSettings() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
+      <PageShell>
         <h1 className="text-2xl font-bold mb-6" style={{ color: branding.primaryColor }}>
           {t("companySettings")}
         </h1>
@@ -417,7 +418,7 @@ export default function AdminSettings() {
             </div>
           </div>
         </form>
-      </main>
+      </PageShell>
       <HelpRequestButton /> {/* ITER12 */}
     </div>
   );

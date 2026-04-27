@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PageShell from "../../components/PageShell";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
@@ -220,7 +221,7 @@ export default function SuperAdminMessages() {
             </div>
           )}
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }

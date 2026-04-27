@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Sidebar from "../../components/Sidebar";
+import PageShell from "../../components/PageShell";
 import { useAuth } from "../../contexts/AuthContext";
 import { useBranding } from "../../contexts/BrandingContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
@@ -63,30 +64,14 @@ export default function SuperAdminDashboard() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8 relative">
+      <PageShell>
 
-        {/* Decorative SVG background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-          <svg viewBox="0 0 900 600" className="w-full h-full" xmlns="http://www.w3.org/2000/svg" fill="none">
-            {/* Bold yellow swirls — centred */}
-            <path d="M900 600 Q650 420 400 520 Q150 620 200 360 Q250 100 580 180" stroke="#FCC00E" strokeWidth="3" opacity="0.18"/>
-            <path d="M900 480 Q680 320 450 420 Q220 520 260 280 Q300 40 620 120" stroke="#FCC00E" strokeWidth="2" opacity="0.12"/>
-            {/* Bold blue swirls — centred */}
-            <path d="M900 540 Q670 370 430 470 Q190 570 230 320 Q270 70 600 150" stroke="#27295A" strokeWidth="3" opacity="0.10"/>
-            <path d="M900 420 Q700 280 480 370 Q260 460 290 230 Q320 0 640 80" stroke="#27295A" strokeWidth="1.5" opacity="0.07"/>
-            {/* Circles — centred on viewport */}
-            <circle cx="450" cy="340" r="220" stroke="#FCC00E" strokeWidth="2.5" opacity="0.10"/>
-            <circle cx="520" cy="200" r="140" stroke="#27295A" strokeWidth="2" opacity="0.07"/>
-            <circle cx="350" cy="460" r="100" stroke="#FCC00E" strokeWidth="2" opacity="0.12"/>
-          </svg>
-        </div>
-
-        <h1 className="relative z-10 text-2xl font-bold mb-4" style={{ color: branding.primaryColor }}>
+        <h1 className="text-2xl font-bold mb-4" style={{ color: branding.primaryColor }}>
           {t("dashboard")}
         </h1>
 
         {/* ITER9: Client filter dropdown */}
-        <div className="relative z-10 mb-6">
+        <div className="mb-6">
           <select
             value={selectedClientId}
             onChange={e => setSelectedClientId(e.target.value)}
@@ -101,7 +86,7 @@ export default function SuperAdminDashboard() {
         </div>
 
         {/* ITER9: 6-card grid */}
-        <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
           {/* Card 1 — Entreprises clientes */}
           <div className="bg-white rounded-xl shadow-sm p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-1">
@@ -201,7 +186,7 @@ export default function SuperAdminDashboard() {
           </div>
 
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }
