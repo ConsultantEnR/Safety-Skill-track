@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../lib/prisma";
 import { authenticate, requireRole } from "../../middleware/auth";
 import bcrypt from "bcryptjs";
 import { sendTestCompletionNotification } from "../../services/email";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ITER10/11: logique de progression par niveau
 const LEVEL_ORDER = ["FONDAMENTAL","BASIQUE","INTERMEDIAIRE","AVANCE","COMPLET"];

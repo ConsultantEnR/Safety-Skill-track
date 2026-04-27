@@ -1,9 +1,8 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../lib/prisma";
 import { authenticate, requireRole } from "../../middleware/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET all tests with competence details and question counts
 router.get("/", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next) => {

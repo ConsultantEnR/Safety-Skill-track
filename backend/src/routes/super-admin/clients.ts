@@ -7,7 +7,6 @@ import { sendCredentials } from "../../services/email";
 import { persistUploadedFile } from "../../services/storage";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 

@@ -1,10 +1,9 @@
 // ITER8: routes Super Admin pour la gestion des réponses ouvertes (OPEN / SCENARIO)
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../lib/prisma";
 import { authenticate, requireRole } from "../../middleware/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET toutes les réponses ouvertes avec filtres
 // ?type=OPEN|SCENARIO&clientId=X&employeeId=Y&reviewed=true|false&subThemeId=X&subSubThemeId=X

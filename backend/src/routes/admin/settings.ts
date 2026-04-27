@@ -1,12 +1,11 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../lib/prisma";
 import { authenticate, requireRole } from "../../middleware/auth";
 import bcrypt from "bcryptjs";
 import multer from "multer";
 import { persistUploadedFile } from "../../services/storage";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 

@@ -1,6 +1,6 @@
 // ITER8: ajout des routes password, username, logo dédiées
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../lib/prisma";
 import { authenticate, requireRole } from "../../middleware/auth";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
@@ -9,7 +9,6 @@ import { sendEmailVerification } from "../../services/email"; // ITER11
 import { persistUploadedFile } from "../../services/storage";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 

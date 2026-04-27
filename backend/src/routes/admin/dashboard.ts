@@ -1,10 +1,9 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../lib/prisma";
 import { authenticate, requireRole } from "../../middleware/auth";
 import ExcelJS from "exceljs";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ITER11: helper – build taxonomy lookup maps (grand theme, sub-theme 1, sub-theme 2)
 async function buildTaxonomyMaps() {

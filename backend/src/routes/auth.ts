@@ -1,12 +1,11 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../lib/prisma";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { sendPasswordReset } from "../services/email";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 function generateTokens(user: { id: number; role: string; clientId?: number | null }) {
   const accessToken = jwt.sign(

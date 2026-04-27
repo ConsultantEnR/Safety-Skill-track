@@ -1,8 +1,7 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../lib/prisma";
 import { authenticate, requireRole } from "../../middleware/auth";
 
-const prisma = new PrismaClient();
 
 // ITER11: mapping FR→EN pour les thèmes et sous-thèmes (seed + import)
 export const THEME_EN_MAP: Record<string, string> = {

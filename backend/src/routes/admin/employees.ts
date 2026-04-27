@@ -5,7 +5,6 @@ import bcrypt from "bcryptjs";
 import { sendCredentials } from "../../services/email";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 function generatePassword(): string {
   const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
