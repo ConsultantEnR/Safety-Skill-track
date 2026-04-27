@@ -35,6 +35,21 @@ async function main() {
     console.log("======================================\n");
   }
 
+  const extraAdmins = [
+    { email: "nicolas.lecoeur@8p2.fr", username: "nicolas.lecoeur" },
+    { email: "richard.musi@8p2.fr",    username: "richard.musi"    },
+  ];
+  for (const admin of extraAdmins) {
+    const exists = await prisma.user.findUnique({ where: { email: admin.email } });
+    if (!exists) {
+      const hashed = await bcrypt.hash("SuperAdmin2024!", 12);
+      await prisma.user.create({
+        data: { email: admin.email, username: admin.username, password: hashed, role: Role.SUPER_ADMIN },
+      });
+      console.log("Created super admin:", admin.email);
+    }
+  }
+
   // Taxonomy
   const taxonomy = [
     {
