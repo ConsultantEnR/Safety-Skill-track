@@ -191,7 +191,7 @@ function parseFormatV3(rows: any[][], headers: string[]): ParsedQuestion[] {
       sub_theme_2: (col.sub2 !== undefined ? row[col.sub2]?.toString() : "") || "",
       correct_answers, distractors,
     };
-  }).filter((q): q is ParsedQuestion => q !== null);
+  }).filter(q => q !== null) as ParsedQuestion[];
 }
 
 function computeAlert(q: ParsedQuestion): "NO_CORRECT" | "ALL_CORRECT" | "NO_ANSWERS" | null {
@@ -477,7 +477,7 @@ export default function SuperAdminQuestions() {
           return;
         }
         setImportParseError(null);
-        setImportFormat(fmt as ImportFormat);
+        setImportFormat((fmt === "UNKNOWN" ? "V3" : fmt) as ImportFormat);
         parsed = parsed.map(q => ({ ...q, _alert: computeAlert(q) }));
         setImportRows(parsed);
       } catch (err: any) {
