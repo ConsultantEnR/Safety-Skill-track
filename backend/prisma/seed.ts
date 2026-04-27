@@ -14,41 +14,21 @@ async function main() {
     });
   }
 
-  // Super Admin
-  const adminExists = await prisma.user.findUnique({ where: { email: "admin@trainingsaas.com" } });
-  if (!adminExists) {
-    const password = "SuperAdmin2024!";
-    const hashed = await bcrypt.hash(password, 12);
-    await prisma.user.create({
-      data: {
-        email: "admin@trainingsaas.com",
-        username: "superadmin",
-        password: hashed,
-        role: Role.SUPER_ADMIN,
-      },
-    });
-    console.log("\n======================================");
-    console.log("  Super Admin créé !");
-    console.log("  Email    : admin@trainingsaas.com");
-    console.log("  Username : superadmin");
-    console.log("  Password : SuperAdmin2024!");
-    console.log("======================================\n");
-  }
-
-  const extraAdmins = [
-    { email: "nicolas.lecoeur@8p2.fr",              username: "nicolas.lecoeur"  },
-    { email: "richard.musi@8p2.fr",               username: "richard.musi"     },
-    { email: "ines.dechaut@aegide-international.com", username: "ines.dechaut" },
+  const SUPER_ADMIN_PASSWORD = "Dolfines2026.";
+  const superAdmins = [
+    { email: "admin@trainingsaas.com",                username: "superadmin"    },
+    { email: "nicolas.lecoeur@8p2.fr",               username: "nicolas.lecoeur" },
+    { email: "richard.musi@8p2.fr",                  username: "richard.musi"    },
+    { email: "ines.dechaut@aegide-international.com", username: "ines.dechaut"   },
   ];
-  for (const admin of extraAdmins) {
-    const exists = await prisma.user.findUnique({ where: { email: admin.email } });
-    if (!exists) {
-      const hashed = await bcrypt.hash("SuperAdmin2024!", 12);
-      await prisma.user.create({
-        data: { email: admin.email, username: admin.username, password: hashed, role: Role.SUPER_ADMIN },
-      });
-      console.log("Created super admin:", admin.email);
-    }
+  const hashed = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 12);
+  for (const admin of superAdmins) {
+    await prisma.user.upsert({
+      where: { email: admin.email },
+      update: { password: hashed, role: Role.SUPER_ADMIN },
+      create: { email: admin.email, username: admin.username, password: hashed, role: Role.SUPER_ADMIN },
+    });
+    console.log("Upserted super admin:", admin.email);
   }
 
   // Taxonomy
