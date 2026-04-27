@@ -30,8 +30,48 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Drop legacy tables (profiles + snake_case from previous schema)
+        run: |
+          pip install pg8000 -q
+          python - <<'PYEOF'
+          import pg8000, ssl, os
+
+          url = os.environ["DATABASE_URL"]
+          # Parse pooler URL: postgresql://user:pass@host:port/db?...
+          from urllib.parse import urlparse, unquote
+          u = urlparse(url)
+          ctx = ssl.create_default_context()
+          ctx.check_hostname = False
+          ctx.verify_mode = ssl.CERT_NONE
+          conn = pg8000.connect(
+              host=u.hostname, port=u.port or 5432,
+              database=u.path.lstrip("/").split("?")[0],
+              user=unquote(u.username), password=unquote(u.password),
+              ssl_context=ctx
+          )
+          conn.autocommit = True
+          cur = conn.cursor()
+          # Lister les tables public hors celles gérées par Supabase
+          cur.execute("""
+            SELECT tablename FROM pg_tables
+            WHERE schemaname = 'public'
+            ORDER BY tablename
+          """)
+          tables = [r[0] for r in cur.fetchall()]
+          print("Tables found:", tables)
+          if tables:
+              # Drop toutes les tables public en cascade
+              drop_sql = "DROP TABLE IF EXISTS " + ", ".join(f'"{t}"' for t in tables) + " CASCADE"
+              print("Executing:", drop_sql)
+              cur.execute(drop_sql)
+          conn.close()
+          print("Legacy tables dropped.")
+          PYEOF
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Push Prisma schema to Supabase
-        run: npx prisma db push
+        run: npx prisma db push --skip-generate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
