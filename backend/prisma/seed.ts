@@ -36,8 +36,9 @@ async function main() {
   }
 
   const extraAdmins = [
-    { email: "nicolas.lecoeur@8p2.fr", username: "nicolas.lecoeur" },
-    { email: "richard.musi@8p2.fr",    username: "richard.musi"    },
+    { email: "nicolas.lecoeur@8p2.fr",              username: "nicolas.lecoeur"  },
+    { email: "richard.musi@8p2.fr",               username: "richard.musi"     },
+    { email: "ines.dechaut@aegide-international.com", username: "ines.dechaut" },
   ];
   for (const admin of extraAdmins) {
     const exists = await prisma.user.findUnique({ where: { email: admin.email } });
