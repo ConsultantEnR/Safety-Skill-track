@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "PowerShell(python -m pip install pg8000 --quiet 2>&1)",
-      "Bash(powershell -Command ' *)"
+      "Bash(powershell -Command ' *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
