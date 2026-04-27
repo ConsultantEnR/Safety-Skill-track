@@ -20,7 +20,7 @@ interface Question {
 // ITER13: Structured import question (replaces old free-form map)
 interface ParsedQuestion {
   _rowIndex: number;
-  _format: "A" | "B";
+  _format: "A" | "B" | "V3";
   _selected: boolean;
   _alert: "NO_CORRECT" | "ALL_CORRECT" | "NO_ANSWERS" | null;
   question_text: string;
@@ -34,6 +34,7 @@ interface ParsedQuestion {
 }
 // Keep ImportQuestion as alias for backwards compat in state typing
 type ImportQuestion = ParsedQuestion;
+type ImportFormat = "A" | "B" | "V3";
 
 // ─── ITER13: Excel parser functions ───────────────────────────────────────────
 function getCellValue(row: any[], index: number | undefined): string | null {
@@ -67,11 +68,12 @@ function normalizeBoolean(value: any): boolean | null {
   if (["non","no","faux","false","0","n","f"].includes(v)) return false;
   return null;
 }
-function detectImportFormat(headers: string[]): "A" | "B" | "UNKNOWN" {
-  const hl = headers.map(h => h.toString().toLowerCase().trim());
-  if (hl.some(h => ["correcte","correct","is correct","bonne réponse","bonne reponse"].includes(h))) return "A";
+function detectImportFormat(headers: string[]): ImportFormat | "UNKNOWN" {
+  const hn = headers.map(h => normalizeH(h.toString()));
+  if (hn.some(h => h === "a_correct" || h === "b_correct") || hn.some(h => h === "option a")) return "V3";
+  if (hn.some(h => ["correcte","correct","is correct","bonne reponse"].includes(h))) return "A";
   const hr = headers.map(h => h.toString().trim());
-  if (hr.some(h => h.startsWith("✅") || h.toLowerCase().startsWith("[c]") || h.toLowerCase().startsWith("correct:") || h.toLowerCase().startsWith("bonne:") || h.toLowerCase().startsWith("good:"))) return "B";
+  if (hr.some(h => h.startsWith("✅") || h.startsWith("❌") || h.toLowerCase().startsWith("[c]"))) return "B";
   return "UNKNOWN";
 }
 function parseFormatA(rows: any[][], headers: string[]): ParsedQuestion[] {
@@ -133,6 +135,65 @@ function parseFormatB(rows: any[][], headers: string[]): ParsedQuestion[] {
     }))
     .filter(q => q.question_text !== "");
 }
+function parseFormatV3(rows: any[][], headers: string[]): ParsedQuestion[] {
+  const col: Record<string, number> = {};
+  headers.forEach((h, i) => {
+    const kn = normalizeH(h.toString());
+    if (kn.includes("thematique") || (kn === "theme" && col.theme === undefined)) col.theme = i;
+    else if (kn === "sous-theme 1" || kn === "sous theme 1") col.sub1 = i;
+    else if (kn === "sous-theme 2" || kn === "sous theme 2") col.sub2 = i;
+    else if (kn.includes("niveau") || kn.includes("competence")) col.level = i;
+    else if (kn.includes("type")) col.type = i;
+    else if (kn === "question") col.question = i;
+    else if (kn === "option a") col.oA = i;
+    else if (kn === "a_correct") col.kA = i;
+    else if (kn === "option b") col.oB = i;
+    else if (kn === "b_correct") col.kB = i;
+    else if (kn === "option c") col.oC = i;
+    else if (kn === "c_correct") col.kC = i;
+    else if (kn === "option d") col.oD = i;
+    else if (kn === "d_correct") col.kD = i;
+    else if (kn === "option e") col.oE = i;
+    else if (kn === "e_correct") col.kE = i;
+  });
+  const pairs = [
+    [col.oA, col.kA], [col.oB, col.kB], [col.oC, col.kC],
+    [col.oD, col.kD], [col.oE, col.kE],
+  ] as Array<[number | undefined, number | undefined]>;
+
+  return rows.map((row, ri) => {
+    const qt = col.question !== undefined ? row[col.question] : null;
+    if (!qt?.toString().trim()) return null;
+    const correct_answers: string[] = [];
+    const distractors: string[] = [];
+    for (const [oi, ki] of pairs) {
+      if (oi === undefined) continue;
+      const optRaw = row[oi];
+      const okRaw  = ki !== undefined ? row[ki] : null;
+      if (optRaw === null || optRaw === undefined || optRaw === "") continue;
+      const okStr = (okRaw?.toString() || "").toLowerCase().trim();
+      if (okStr.includes("personnalis") || okStr.includes("requise")) continue;
+      let optStr = optRaw.toString().trim();
+      if (optRaw === true  || optStr.toLowerCase() === "true")  optStr = "Vrai";
+      if (optRaw === false || optStr.toLowerCase() === "false") optStr = "Faux";
+      if (!optStr) continue;
+      const isCorrect = okRaw === true || normalizeBoolean(okRaw) === true;
+      if (isCorrect) correct_answers.push(optStr);
+      else distractors.push(optStr);
+    }
+    return {
+      _rowIndex: ri + 2, _format: "V3" as const, _selected: true, _alert: null,
+      question_text: qt.toString().trim(),
+      type:      (col.type  !== undefined ? row[col.type]?.toString()  : "") || "",
+      level:     (col.level !== undefined ? row[col.level]?.toString() : "") || "",
+      theme:     (col.theme !== undefined ? row[col.theme]?.toString() : "") || "",
+      sub_theme_1: (col.sub1 !== undefined ? row[col.sub1]?.toString() : "") || "",
+      sub_theme_2: (col.sub2 !== undefined ? row[col.sub2]?.toString() : "") || "",
+      correct_answers, distractors,
+    };
+  }).filter((q): q is ParsedQuestion => q !== null);
+}
+
 function computeAlert(q: ParsedQuestion): "NO_CORRECT" | "ALL_CORRECT" | "NO_ANSWERS" | null {
   const t = q.type.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
   // Explicit open/scenario keywords → no answer requirements
@@ -398,13 +459,15 @@ export default function SuperAdminQuestions() {
         const fmt = detectImportFormat(headers);
         if (fmt === "UNKNOWN") {
           setImportFormat(null);
-          setImportParseError('Format non reconnu. Utilisez le Format A (colonne "Correcte") ou le Format B (préfixes ✅/❌). Téléchargez le template pour voir les exemples.');
+          setImportParseError('Format non reconnu. Utilisez le format du template (colonnes Option A / A_Correct). Téléchargez le template pour voir les exemples.');
           setImportRows([]);
           return;
         }
         setImportParseError(null);
         setImportFormat(fmt);
-        const parsed = (fmt === "A" ? parseFormatA(rows, headers) : parseFormatB(rows, headers))
+        const parsed = (fmt === "V3" ? parseFormatV3(rows, headers)
+                      : fmt === "A"  ? parseFormatA(rows, headers)
+                      : parseFormatB(rows, headers))
           .map(q => ({ ...q, _alert: computeAlert(q) }));
         setImportRows(parsed);
       } catch (err: any) {

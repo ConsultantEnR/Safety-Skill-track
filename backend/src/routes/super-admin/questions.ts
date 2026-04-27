@@ -65,6 +65,10 @@ const VALID_LEVELS = ["FONDAMENTAL", "BASIQUE", "INTERMEDIAIRE", "AVANCE", "COMP
 // ITER7: étendu pour couvrir toutes les variantes françaises de l'Excel réel
 const TYPE_MAP: Record<string, string> = {
   "qcm": "QCM",
+  "choix multiple_une seule reponse": "QCM", "choix multiple_une seule réponse": "QCM",
+  "qcm_une seule reponse possible": "QCM",   "qcm_une seule réponse possible": "QCM",
+  "qcm_2 reponses possibles": "QCM",         "qcm_2 réponses possibles": "QCM",
+  "qcm_toutes reponses possibles": "QCM",    "qcm_toutes réponses possibles": "QCM",
   "vrai/faux": "TRUE_FALSE", "vrai-faux": "TRUE_FALSE", "true_false": "TRUE_FALSE",
   "vrai ou faux": "TRUE_FALSE", "vrai / faux": "TRUE_FALSE",
   "ouvert": "OPEN", "open": "OPEN", "question ouverte": "OPEN", "question ouvert": "OPEN",
@@ -195,107 +199,85 @@ router.post("/import", authenticate, requireRole("SUPER_ADMIN"), async (req, res
   } catch (err) { next(err); }
 });
 
-// ITER13: GET template Excel (Format A + Format B + Instructions)
 router.get("/template", authenticate, requireRole("SUPER_ADMIN"), async (_req, res, next) => {
   try {
     const wb = new ExcelJS.Workbook();
     wb.creator = "Safety Skill Track";
 
-    // ── Onglet 1 : Format A ──────────────────────────────────────────────────
-    const wsA = wb.addWorksheet("Template Format A");
-    wsA.columns = [
-      { header: "Question",          key: "q",   width: 45 },
-      { header: "Type",              key: "t",   width: 18 },
-      { header: "Niveau",            key: "n",   width: 16 },
-      { header: "Grand thème",       key: "gt",  width: 22 },
-      { header: "Sous-thème 1",      key: "st1", width: 22 },
-      { header: "Sous-thème 2",      key: "st2", width: 22 },
-      { header: "Réponse proposée",  key: "ans", width: 35 },
-      { header: "Correcte",          key: "ok",  width: 10 },
+    // ── Onglet 1 : Template (format v3 — une ligne par question) ─────────────
+    const ws = wb.addWorksheet("Template");
+    ws.columns = [
+      { header: "S/No.",                key: "sno",  width: 8  },
+      { header: "Thématique",           key: "th",   width: 22 },
+      { header: "Sous-thème 1",         key: "st1",  width: 22 },
+      { header: "Sous-thème 2",         key: "st2",  width: 22 },
+      { header: "Niveau de compétence", key: "lvl",  width: 22 },
+      { header: "Type de question",     key: "type", width: 32 },
+      { header: "Question",             key: "q",    width: 50 },
+      { header: "Option A",             key: "oA",   width: 30 },
+      { header: "A_Correct",            key: "kA",   width: 12 },
+      { header: "Option B",             key: "oB",   width: 30 },
+      { header: "B_Correct",            key: "kB",   width: 12 },
+      { header: "Option C",             key: "oC",   width: 30 },
+      { header: "C_Correct",            key: "kC",   width: 12 },
+      { header: "Option D",             key: "oD",   width: 30 },
+      { header: "D_Correct",            key: "kD",   width: 12 },
+      { header: "Option E",             key: "oE",   width: 30 },
+      { header: "E_Correct",            key: "kE",   width: 12 },
     ];
-    // Header row style
-    wsA.getRow(1).eachCell(cell => {
+    ws.getRow(1).eachCell(cell => {
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF27295A" } };
       cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
     });
-    // Exemples
-    const exA = [
-      ["Quel EPI pour les risques chimiques ?","QCM","Intermédiaire","Techniques","Gestion des risques","Risques chimiques","Gants en nitrile","OUI"],
-      ["","","","","","","Lunettes de protection","OUI"],
-      ["","","","","","","Tablier résistant","OUI"],
-      ["","","","","","","Casquette de baseball","NON"],
-      ["","","","","","","Chaussures ouvertes","NON"],
-      ["Le port du casque est obligatoire en zone de travail","Vrai/Faux","Fondamental","Techniques","Règlementations","Port des EPI","Vrai","OUI"],
-      ["","","","","","","Faux","NON"],
-      ["Décrivez la procédure d'évacuation d'urgence","Question ouverte","Avancé","Techniques","Gestion des incidents","Plans d'urgence","",""],
+    const examples = [
+      [1,"Techniques","Gestion des risques","Risques chimiques","3-Intermédiaire","Choix multiple_une seule réponse","Quel EPI pour les risques chimiques ?","Gants en nitrile","TRUE","Lunettes de protection","FALSE","Casquette de baseball","FALSE","Chaussures ouvertes","FALSE",null,null],
+      [2,"Techniques","Règlementations","Port des EPI","1-Fondamental","Vrai/Faux","Le port du casque est obligatoire en zone de travail","Vrai","TRUE","Faux","FALSE",null,null,null,null,null,null],
+      [3,"Techniques","Gestion des incidents","Plans d'urgence","4-Avancé","Scénario","Décrivez la procédure d'évacuation d'urgence",null,"Réponse personnalisée requise",null,null,null,null,null,null,null,null],
+      [4,"Fondamentales","Leadership & management","Gestion du changement","2-Base","QCM_2 réponses possibles","Quelles sont les deux actions prioritaires lors d'un changement ?","Expliquer les avantages","TRUE","Recueillir les retours","TRUE","Précipiter la mise en œuvre","FALSE","Ignorer les préoccupations","FALSE",null,null],
     ];
-    exA.forEach(row => wsA.addRow(row));
-    // Data validations
-    for (let r = 2; r <= 200; r++) {
-      wsA.getCell(`H${r}`).dataValidation = { type: "list", allowBlank: true, formulae: ['"OUI,NON"'] };
-      wsA.getCell(`B${r}`).dataValidation = { type: "list", allowBlank: true, formulae: ['"QCM,Vrai/Faux,Question ouverte,Scénario"'] };
-      wsA.getCell(`C${r}`).dataValidation = { type: "list", allowBlank: true, formulae: ['"Fondamental,Basique,Intermédiaire,Avancé,Complet"'] };
+    examples.forEach(row => ws.addRow(row));
+
+    const typeList = '"Choix multiple_une seule réponse,QCM_2 réponses possibles,QCM_Toutes réponses possibles,Vrai/Faux,Scénario,Question ouverte"';
+    const levelList = '"1-Fondamental,2-Base,3-Intermédiaire,4-Avancé,5-Complet"';
+    const boolList  = '"TRUE,FALSE"';
+    for (let r = 2; r <= 500; r++) {
+      ws.getCell(`F${r}`).dataValidation = { type: "list", allowBlank: true, formulae: [typeList] };
+      ws.getCell(`E${r}`).dataValidation = { type: "list", allowBlank: true, formulae: [levelList] };
+      for (const col of ["I","K","M","O","Q"]) {
+        ws.getCell(`${col}${r}`).dataValidation = { type: "list", allowBlank: true, formulae: [boolList] };
+      }
     }
 
-    // ── Onglet 2 : Format B ──────────────────────────────────────────────────
-    const wsB = wb.addWorksheet("Template Format B");
-    wsB.columns = [
-      { header: "Question",     key: "q",   width: 45 },
-      { header: "Type",         key: "t",   width: 18 },
-      { header: "Niveau",       key: "n",   width: 16 },
-      { header: "Grand thème",  key: "gt",  width: 22 },
-      { header: "Sous-thème 1", key: "st1", width: 22 },
-      { header: "Sous-thème 2", key: "st2", width: 22 },
-      { header: "✅ Réponse 1", key: "c1",  width: 25 },
-      { header: "✅ Réponse 2", key: "c2",  width: 25 },
-      { header: "✅ Réponse 3", key: "c3",  width: 25 },
-      { header: "❌ Réponse 4", key: "d1",  width: 25 },
-      { header: "❌ Réponse 5", key: "d2",  width: 25 },
-      { header: "❌ Réponse 6", key: "d3",  width: 25 },
-    ];
-    wsB.getRow(1).eachCell(cell => {
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF27295A" } };
-      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
-    });
-    wsB.addRow(["Quel EPI pour les risques chimiques ?","QCM","Intermédiaire","Techniques","Gestion des risques","Risques chimiques","Gants en nitrile","Lunettes","Tablier résistant","Casquette","Chaussures ouvertes",""]);
-    wsB.addRow(["Le port du casque est obligatoire en zone de travail","Vrai/Faux","Fondamental","Techniques","Règlementations","Port des EPI","Vrai","","","Faux","",""]);
-    wsB.addRow(["Décrivez la procédure d'évacuation d'urgence","Question ouverte","Avancé","Techniques","Gestion des incidents","Plans d'urgence","","","","","",""]);
-    for (let r = 2; r <= 200; r++) {
-      wsB.getCell(`B${r}`).dataValidation = { type: "list", allowBlank: true, formulae: ['"QCM,Vrai/Faux,Question ouverte,Scénario"'] };
-      wsB.getCell(`C${r}`).dataValidation = { type: "list", allowBlank: true, formulae: ['"Fondamental,Basique,Intermédiaire,Avancé,Complet"'] };
-    }
-
-    // ── Onglet 3 : Instructions ──────────────────────────────────────────────
+    // ── Onglet 2 : Instructions ──────────────────────────────────────────────
     const wsI = wb.addWorksheet("Instructions");
     const instructions = [
       ["Safety Skill Track — Guide d'import des questions"],
       [""],
-      ["FORMAT A (recommandé) : une ligne par réponse"],
-      ["  • Colonne 'Correcte' : OUI pour bonne réponse, NON pour distracteur"],
-      ["  • Si la cellule 'Question' est vide, la ligne appartient à la question précédente"],
-      ["  • Supporte le nombre illimité de réponses par question"],
+      ["FORMAT : une ligne par question, jusqu'à 5 options (Option A → Option E)"],
       [""],
-      ["FORMAT B : une ligne par question"],
-      ["  • Colonnes préfixées ✅ = réponses correctes"],
-      ["  • Colonnes préfixées ❌ = distracteurs"],
-      ["  • Les cellules vides sont ignorées"],
+      ["COLONNES"],
+      ["  S/No.                 Numéro de la question (optionnel)"],
+      ["  Thématique            Grand thème (ex. Techniques, Fondamentales)"],
+      ["  Sous-thème 1          Sous-thème principal"],
+      ["  Sous-thème 2          Sous-thème détaillé"],
+      ["  Niveau de compétence  1-Fondamental / 2-Base / 3-Intermédiaire / 4-Avancé / 5-Complet"],
+      ["  Type de question      Choix multiple_une seule réponse | QCM_2 réponses possibles | Vrai/Faux | Scénario | ..."],
+      ["  Question              Texte de la question"],
+      ["  Option A/B/C/D/E      Texte de la réponse proposée"],
+      ["  A_Correct/...         TRUE si correct, FALSE sinon"],
       [""],
-      ["VALEURS ACCEPTÉES"],
-      ["  • Correcte (Format A) : OUI, NON (ou YES/NO, VRAI/FAUX, 1/0)"],
-      ["  • Niveau : Fondamental, Basique, Intermédiaire, Avancé, Complet"],
-      ["  • Type : QCM, Vrai/Faux, Question ouverte, Scénario"],
+      ["QUESTIONS OUVERTES / SCÉNARIO"],
+      ["  Laissez les colonnes Option et _Correct vides (ou mettez 'Réponse personnalisée requise' dans A_Correct)"],
       [""],
       ["CONSEILS"],
-      ["  • Pour un QCM avec toutes les réponses correctes : laissez colonne ❌ vide"],
-      ["  • Pour une question ouverte : laissez les colonnes réponse vides"],
-      ["  • Les thèmes inconnus seront automatiquement créés"],
+      ["  • Les thèmes inconnus sont créés automatiquement"],
+      ["  • Les cellules vides dans Option X sont ignorées"],
+      ["  • Les espaces en trop dans les valeurs sont supprimés automatiquement"],
     ];
     instructions.forEach((row, i) => {
       const r = wsI.addRow(row);
       if (i === 0) r.getCell(1).font = { bold: true, size: 14 };
-      if (row[0]?.toString().startsWith("FORMAT") || row[0]?.toString().startsWith("VALEURS") || row[0]?.toString().startsWith("CONSEILS")) {
-        r.getCell(1).font = { bold: true };
-      }
+      else if (row[0]?.toString().match(/^[A-ZÉÀÇ]/)) r.getCell(1).font = { bold: true };
     });
     wsI.getColumn(1).width = 80;
 
