@@ -7,8 +7,8 @@ import { resolveAssetUrl } from "../../lib/runtime";
 import toast from "react-hot-toast";
 import {
   Plus, Pencil, X, Copy, Check, ClipboardList, FileSpreadsheet, Upload,
-  AlertTriangle, Trash2, SlidersHorizontal, ChevronDown, ChevronRight,
-  Users, Mail, RefreshCw, KeyRound, Eye, EyeOff, Send,
+  AlertTriangle, SlidersHorizontal, ChevronDown, ChevronRight,
+  Mail, RefreshCw, Eye, EyeOff, Send,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -112,12 +112,6 @@ const statusColors: Record<string, string> = {
   NOT_STARTED: "bg-red-100 text-red-700",
   IN_PROGRESS: "bg-amber-100 text-amber-700",
   COMPLETED: "bg-green-100 text-green-700",
-};
-// ITER9: statusLabels will use t() in JSX — kept as fallback for non-JSX use
-const statusLabelsStatic: Record<string, string> = {
-  NOT_STARTED: "Pas commencé",
-  IN_PROGRESS: "En cours",
-  COMPLETED: "Terminé",
 };
 const statusDot: Record<string, string> = {
   NOT_STARTED: "🔴",

@@ -4,7 +4,7 @@ import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
 import toast from "react-hot-toast";
-import { MessageSquare, Check, Filter, Reply } from "lucide-react";
+import { MessageSquare, Check, Reply } from "lucide-react";
 
 interface Message {
   id: number;
