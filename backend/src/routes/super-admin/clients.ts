@@ -2,34 +2,14 @@ import { Router } from "express";
 import { Role } from "@prisma/client";
 import prisma from "../../lib/prisma";
 import { authenticate, requireRole } from "../../middleware/auth";
-import bcrypt from "bcryptjs";
 import multer from "multer";
 import { sendCredentials } from "../../services/email";
 import { persistUploadedFile } from "../../services/storage";
+import { provisionUser, resetUserPassword } from "../../services/userService";
 
 const router = Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
-
-function generatePassword(): string {
-  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const lower = "abcdefghijklmnopqrstuvwxyz";
-  const digits = "0123456789";
-  const special = "!@#$%&*";
-  const all = upper + lower + digits + special;
-  let pwd = [
-    upper[Math.floor(Math.random() * upper.length)],
-    lower[Math.floor(Math.random() * lower.length)],
-    digits[Math.floor(Math.random() * digits.length)],
-    special[Math.floor(Math.random() * special.length)],
-  ];
-  for (let i = 0; i < 8; i++) pwd.push(all[Math.floor(Math.random() * all.length)]);
-  for (let i = pwd.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pwd[i], pwd[j]] = [pwd[j], pwd[i]];
-  }
-  return pwd.join("");
-}
 
 router.get("/", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next) => {
   try {
@@ -45,24 +25,23 @@ router.get("/", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next)
 
 router.post("/", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next) => {
   try {
-    // ITER7: ajout des champs postalCode, city, country
-    const { name, address, adminFirstName, adminLastName, adminEmail, primaryColor, accentColor, siret, sector, contactName, contactEmail, phone, website, postalCode, city, country, state } = req.body;
-    const generatedPassword = generatePassword();
-    const hashedPassword = await bcrypt.hash(generatedPassword, 12);
+    const { name, address, adminEmail, primaryColor, accentColor, siret, sector, contactName, contactEmail, phone, website, postalCode, city, country, state } = req.body;
+    // Create client first, then provision admin user (needs clientId)
     const client = await prisma.client.create({
       data: {
         name, address, primaryColor: primaryColor || "#27295A", accentColor: accentColor || "#FCC00E",
         siret, sector, contactName, contactEmail, phone, website,
-        postalCode: postalCode || null, city: city || null, country: country || null, // ITER7
-        state: state || null, // ITER10
-        adminPassword: generatedPassword, // ITER11: stocker pour affichage SA
-        users: {
-          create: { email: adminEmail, username: adminEmail, password: hashedPassword, role: Role.CLIENT_ADMIN }
-        }
+        postalCode: postalCode || null, city: city || null, country: country || null,
+        state: state || null,
       },
-      include: { users: true }
     });
-    res.status(201).json({ client, generatedPassword });
+    const { plainPassword } = await provisionUser(adminEmail, Role.CLIENT_ADMIN, client.id);
+    const updatedClient = await prisma.client.update({
+      where: { id: client.id },
+      data: { adminPassword: plainPassword },
+      include: { users: true },
+    });
+    res.status(201).json({ client: updatedClient, generatedPassword: plainPassword });
   } catch (err) { next(err); }
 });
 
@@ -164,18 +143,12 @@ router.post("/:id/employees/import", authenticate, requireRole("SUPER_ADMIN"), a
     const { employees } = req.body;
     const results: any[] = [];
     for (const emp of employees) {
-      const plainPassword = generatePassword();
-      const hashedPassword = await bcrypt.hash(plainPassword, 12);
-      const user = await prisma.user.upsert({
-        where: { username: emp.email },
-        update: { password: hashedPassword, email: emp.email },
-        create: { email: emp.email, username: emp.email, password: hashedPassword, role: Role.EMPLOYEE, clientId }
-      });
+      const { userId, plainPassword } = await provisionUser(emp.email, Role.EMPLOYEE, clientId);
       const { birthDate, ...empRest } = emp;
       const employee = await prisma.employee.upsert({
         where: { email: emp.email },
-        update: { ...empRest, clientId, plainPassword, userId: user.id },
-        create: { ...empRest, clientId, birthDate: birthDate ? new Date(birthDate) : null, plainPassword, userId: user.id }
+        update: { ...empRest, clientId, plainPassword, userId },
+        create: { ...empRest, clientId, birthDate: birthDate ? new Date(birthDate) : null, plainPassword, userId }
       });
       results.push({ ...employee, plainPassword });
     }
@@ -227,9 +200,7 @@ router.post("/:clientId/employees/:empId/reset-password", authenticate, requireR
     });
     if (!employee || !employee.user) return res.status(404).json({ error: "Employé non trouvé" });
 
-    const plainPassword = generatePassword();
-    const hashed = await bcrypt.hash(plainPassword, 12);
-    await prisma.user.update({ where: { id: employee.user.id }, data: { password: hashed } });
+    const plainPassword = await resetUserPassword(employee.user.id);
     await prisma.employee.update({ where: { id: employee.id }, data: { plainPassword } });
 
     res.json({ plainPassword, email: employee.email, username: employee.user.username });
@@ -262,9 +233,7 @@ router.post("/:id/reset-admin-password", authenticate, requireRole("SUPER_ADMIN"
     const clientId = Number(req.params.id);
     const adminUser = await prisma.user.findFirst({ where: { clientId, role: Role.CLIENT_ADMIN } });
     if (!adminUser) return res.status(404).json({ error: "Admin non trouvé", code: "NOT_FOUND" });
-    const newPassword = generatePassword();
-    const hashed = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({ where: { id: adminUser.id }, data: { password: hashed } });
+    const newPassword = await resetUserPassword(adminUser.id);
     await prisma.client.update({ where: { id: clientId }, data: { adminPassword: newPassword } });
     res.json({ adminPassword: newPassword, username: adminUser.username });
   } catch (err) { next(err); }

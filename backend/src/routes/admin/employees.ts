@@ -2,30 +2,10 @@ import { Router } from "express";
 import { Role } from "@prisma/client";
 import prisma from "../../lib/prisma";
 import { authenticate, requireRole } from "../../middleware/auth";
-import bcrypt from "bcryptjs";
 import { sendCredentials } from "../../services/email";
+import { provisionUser } from "../../services/userService";
 
 const router = Router();
-
-function generatePassword(): string {
-  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const lower = "abcdefghijklmnopqrstuvwxyz";
-  const digits = "0123456789";
-  const special = "!@#$%&*";
-  const all = upper + lower + digits + special;
-  let pwd = [
-    upper[Math.floor(Math.random() * upper.length)],
-    lower[Math.floor(Math.random() * lower.length)],
-    digits[Math.floor(Math.random() * digits.length)],
-    special[Math.floor(Math.random() * special.length)],
-  ];
-  for (let i = 0; i < 8; i++) pwd.push(all[Math.floor(Math.random() * all.length)]);
-  for (let i = pwd.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pwd[i], pwd[j]] = [pwd[j], pwd[i]];
-  }
-  return pwd.join("");
-}
 
 // GET all employees for the client
 router.get("/", authenticate, requireRole("CLIENT_ADMIN"), async (req, res, next) => {
@@ -48,19 +28,13 @@ router.post("/", authenticate, requireRole("CLIENT_ADMIN"), async (req, res, nex
   try {
     const user = (req as any).user;
     const { lastName, firstName, email, position, department, site, country, language, birthDate } = req.body;
-
-    const plainPassword = generatePassword();
-    const hashed = await bcrypt.hash(plainPassword, 12);
-
-    const empUser = await prisma.user.create({
-      data: { email, username: email, password: hashed, role: Role.EMPLOYEE, clientId: user.clientId },
-    });
+    const { userId, plainPassword } = await provisionUser(email, Role.EMPLOYEE, user.clientId);
     const employee = await prisma.employee.create({
       data: {
         lastName, firstName, email, position, department, site, country, language,
         birthDate: birthDate ? new Date(birthDate) : null,
         clientId: user.clientId,
-        userId: empUser.id,
+        userId,
         plainPassword,
       },
     });
@@ -142,18 +116,12 @@ router.post("/import", authenticate, requireRole("CLIENT_ADMIN"), async (req, re
     const { employees } = req.body;
     const results: any[] = [];
     for (const emp of employees) {
-      const plainPassword = generatePassword();
-      const hashed = await bcrypt.hash(plainPassword, 12);
-      const empUser = await prisma.user.upsert({
-        where: { username: emp.email },
-        update: { password: hashed, email: emp.email },
-        create: { email: emp.email, username: emp.email, password: hashed, role: Role.EMPLOYEE, clientId: user.clientId },
-      });
+      const { userId, plainPassword } = await provisionUser(emp.email, Role.EMPLOYEE, user.clientId);
       const { birthDate, ...rest } = emp;
       const employee = await prisma.employee.upsert({
         where: { email: emp.email },
-        update: { ...rest, clientId: user.clientId, plainPassword, userId: empUser.id },
-        create: { ...rest, clientId: user.clientId, birthDate: birthDate ? new Date(birthDate) : null, plainPassword, userId: empUser.id },
+        update: { ...rest, clientId: user.clientId, plainPassword, userId },
+        create: { ...rest, clientId: user.clientId, birthDate: birthDate ? new Date(birthDate) : null, plainPassword, userId },
       });
       results.push({ ...employee, plainPassword });
     }
