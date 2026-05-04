@@ -305,7 +305,8 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
       // 2. Les 2 questions auto et l'open ont été posées → le SST sera arrêté après l'answer
 
       // Si moins de 3 questions auto disponibles au niveau → passer directement au niveau suivant
-      const competenceForMax = session.test.competences.find((c: any) => c.subSubThemeId === pendingProgress.subSubThemeId);
+      const competenceForMax = session.test.competences.find((c: any) => c.subSubThemeId === pendingProgress.subSubThemeId && c.expectedLevel === currentLevel)
+        || session.test.competences.find((c: any) => c.subSubThemeId === pendingProgress.subSubThemeId);
       const maxLevelForSST = (competenceForMax?.expectedLevel as string) || "COMPLET";
       if (autoQ.length === 0 && levelAutoAsked < 3) {
         const next = nextLevel(currentLevel);
@@ -359,7 +360,9 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
 
     const { subSubThemeId, isCorrect: isCorrectRaw, timeRemaining, questionId, userAnswer } = req.body;
 
-    const progressItem = session.progress.find(p => p.subSubThemeId === subSubThemeId);
+    // Avec le modèle multi-niveaux, plusieurs tracks peuvent avoir le même subSubThemeId.
+    // On cible le premier track NON complété pour ce subSubThemeId.
+    const progressItem = session.progress.find(p => p.subSubThemeId === subSubThemeId && !p.completed);
     if (!progressItem) return res.status(400).json({ error: "Sous-thème non trouvé dans la session" });
 
     // Calculer isCorrect côté backend
@@ -459,7 +462,9 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
         // 2 bonnes réponses auto → passer au niveau suivant (ou terminer si niveau max atteint)
         const next = nextLevel(progressItem.currentLevel as string);
         newLevelReached = progressItem.currentLevel as string;
-        const competence = session.test.competences.find((c: any) => c.subSubThemeId === subSubThemeId);
+        // Priorité au compétence du niveau courant (modèle per-level), sinon premier match (ancien modèle)
+        const competence = session.test.competences.find((c: any) => c.subSubThemeId === subSubThemeId && c.expectedLevel === progressItem.currentLevel)
+          || session.test.competences.find((c: any) => c.subSubThemeId === subSubThemeId);
         const maxLevel = (competence?.expectedLevel as string) || "COMPLET";
         const nextExceedsMax = next ? LEVEL_ORDER.indexOf(next) > LEVEL_ORDER.indexOf(maxLevel) : false;
         if (!next || nextExceedsMax) {
