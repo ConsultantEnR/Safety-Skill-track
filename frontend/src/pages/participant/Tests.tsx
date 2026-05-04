@@ -10,7 +10,9 @@ import { Play, RotateCcw, Eye, CheckCircle, Clock, Timer, ChevronDown, ChevronRi
 // ITER7: Interfaces de données
 
 interface SessionProgress {
+  id: number;
   subSubThemeId: number;
+  subSubThemeLabel?: string | null;
   questionsAsked: number;
   correctCount: number;
   completed: boolean;
@@ -580,11 +582,13 @@ function SessionResults({
           const scoreP = prog.questionsAsked > 0
             ? Math.round((prog.correctCount / prog.questionsAsked) * 100)
             : 0;
-          const sst = assignment?.test.competences.find(c => c.subSubThemeId === prog.subSubThemeId);
           return (
-            <div key={prog.subSubThemeId} className="flex items-center gap-3 text-sm">
+            <div key={prog.id} className="flex items-center gap-3 text-sm">
               <span className="flex-1 text-gray-600 text-xs">
-                {(sst as any)?.subSubTheme?.label || `${t("competencyDomain")} ${prog.subSubThemeId}`}
+                {prog.subSubThemeLabel || `${t("competencyDomain")} ${prog.subSubThemeId}`}
+                {prog.currentLevel && (
+                  <span className="ml-1 text-gray-400">({prog.currentLevel.charAt(0) + prog.currentLevel.slice(1).toLowerCase()})</span>
+                )}
               </span>
               <div className="w-24 bg-gray-100 rounded-full h-2">
                 <div className="h-2 rounded-full" style={{ width: `${scoreP}%`, backgroundColor: scoreP >= 70 ? "#22c55e" : "#f59e0b" }} />
@@ -611,10 +615,14 @@ function SessionResults({
       </div>
 
       <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-        {session.progress.map((p, i) => (
-          <div key={i} className="flex items-center justify-between px-4 py-3">
-            {/* ITER9: "Domaine de compétence" au lieu de "Compétence" */}
-            <span className="text-sm text-gray-700">{t("competencyDomain")} #{p.subSubThemeId}</span>
+        {session.progress.map((p) => (
+          <div key={p.id} className="flex items-center justify-between px-4 py-3">
+            <span className="text-sm text-gray-700">
+              {p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`}
+              {p.levelReached && (
+                <span className="ml-1 text-xs text-gray-400">· {p.levelReached.charAt(0) + p.levelReached.slice(1).toLowerCase()}</span>
+              )}
+            </span>
             <div className="flex items-center gap-3 text-xs">
               <span className="text-gray-500">
                 {p.correctCount}/{p.questionsAsked} correctes

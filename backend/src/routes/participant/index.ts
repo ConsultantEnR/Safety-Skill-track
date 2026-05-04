@@ -311,10 +311,10 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
         const next = nextLevel(currentLevel);
         const nextExceedsMaxBank = next ? LEVEL_ORDER.indexOf(next) > LEVEL_ORDER.indexOf(maxLevelForSST) : false;
         if (!next || nextExceedsMaxBank) {
-          // Aucun niveau suivant → finir le SST
+          // Aucun niveau suivant et banque vide → finir le SST sans valider
           await prisma.testSessionProgress.update({
             where: { id: pendingProgress.id },
-            data: { completed: true, passed: true, levelReached: currentLevel as any },
+            data: { completed: true, passed: false, levelReached: currentLevel as any },
           });
           // Vérifier si tous les SST sont done
           const allProgress = await prisma.testSessionProgress.findMany({ where: { sessionId: session.id } });
