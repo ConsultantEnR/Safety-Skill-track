@@ -221,7 +221,7 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
       // Vérifier si on peut encore poser des questions à ce niveau
       const levelAutoAsked = pendingProgress.levelQuestionsAsked;
       const levelOpenAsked = (pendingProgress as any).levelOpenAsked ?? 0;
-      const needsMoreAuto = levelAutoAsked < 2;
+      const needsMoreAuto = levelAutoAsked < 2 || (levelAutoAsked === 2 && pendingProgress.levelCorrectCount === 1);
       const canAskOpen = levelOpenAsked < 1 && openQ.length > 0;
 
       // Si on a besoin d'une question auto et qu'il y en a de disponibles
@@ -463,11 +463,8 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
         } else {
           newCurrentLevel = next;
         }
-      } else if (newLevelQuestionsAsked >= 2) {
-        // ITER11: seuil réduit à 2 (max 2 auto par niveau) — si 2 posées sans 2 bonnes → arrêter ce SST
-        // (l'open éventuelle a déjà été posée séparément)
-        // On n'arrête que si pas d'open en cours — l'arrêt réel vient après que l'open soit posée aussi
-        // Mais si 2 auto posées et moins de 2 bonnes → arrêter
+      } else if (newLevelQuestionsAsked >= 3 || (newLevelQuestionsAsked >= 2 && newLevelCorrectCount === 0)) {
+        // Échec si 0/2 (irrécupérable) ou si 3 questions posées sans atteindre 2 bonnes (rattrapage raté)
         completed = true;
         passed = false;
         newLevelReached = progressItem.currentLevel as string;
