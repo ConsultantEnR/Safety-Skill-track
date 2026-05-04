@@ -54,13 +54,29 @@ function SubSubThemeSelector({ themes, selected, onChange }: {
   function isSelected(sstId: number) { return selected.some(s => s.subSubThemeId === sstId); }
   function toggleSST(sstId: number) {
     if (isSelected(sstId)) onChange(selected.filter(s => s.subSubThemeId !== sstId));
-    else onChange([...selected, { subSubThemeId: sstId, expectedLevel: "FONDAMENTAL" }]);
+    else onChange([...selected, { subSubThemeId: sstId, expectedLevel: "COMPLET" }]);
   }
   function setLevel(sstId: number, level: string) {
     onChange(selected.map(s => s.subSubThemeId === sstId ? { ...s, expectedLevel: level } : s));
   }
+  function allSSTSelected(st: SubTheme) {
+    return st.subSubThemes.length > 0 && st.subSubThemes.every(sst => isSelected(sst.id));
+  }
+  function toggleAllSST(st: SubTheme) {
+    if (allSSTSelected(st)) {
+      onChange(selected.filter(s => !st.subSubThemes.some(sst => sst.id === s.subSubThemeId)));
+    } else {
+      const toAdd = st.subSubThemes
+        .filter(sst => !isSelected(sst.id))
+        .map(sst => ({ subSubThemeId: sst.id, expectedLevel: "COMPLET" }));
+      onChange([...selected, ...toAdd]);
+    }
+  }
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+    <div className="border border-gray-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto">
+      <div className="px-3 py-1.5 bg-blue-50 border-b border-blue-100 text-xs text-blue-600">
+        Sélectionnez les sous-sous-thèmes et définissez le <strong>niveau maximum</strong> à atteindre (de Fondamental jusqu'à ce niveau).
+      </div>
       {themes.map(theme => (
         <div key={theme.id}>
           <button type="button" onClick={() => toggleSet(openThemes, theme.id, setOpenThemes)}
@@ -70,22 +86,34 @@ function SubSubThemeSelector({ themes, selected, onChange }: {
           </button>
           {openThemes.has(theme.id) && theme.subThemes.map(st => (
             <div key={st.id}>
-              <button type="button" onClick={() => toggleSet(openSubThemes, st.id, setOpenSubThemes)}
-                className="flex items-center gap-2 w-full px-6 py-1.5 bg-white hover:bg-gray-50 text-sm text-left text-gray-600">
-                {openSubThemes.has(st.id) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                {tl(st)}
-              </button>
+              <div className="flex items-center gap-2 w-full px-6 py-1.5 bg-white hover:bg-gray-50">
+                <button type="button" onClick={() => toggleSet(openSubThemes, st.id, setOpenSubThemes)}
+                  className="flex items-center gap-1 text-sm text-left text-gray-600 flex-1">
+                  {openSubThemes.has(st.id) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  {tl(st)}
+                </button>
+                {st.subSubThemes.length > 0 && (
+                  <button type="button" onClick={() => toggleAllSST(st)}
+                    className={`text-xs px-2 py-0.5 rounded font-medium ${allSSTSelected(st) ? "bg-red-50 text-red-500 hover:bg-red-100" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}>
+                    {allSSTSelected(st) ? "Tout désélectionner" : "Tout sélectionner"}
+                  </button>
+                )}
+              </div>
               {openSubThemes.has(st.id) && st.subSubThemes.map(sst => (
                 <div key={sst.id} className="flex items-center gap-2 px-10 py-1.5 bg-white hover:bg-gray-50">
                   <input type="checkbox" checked={isSelected(sst.id)} onChange={() => toggleSST(sst.id)}
                     className="rounded" id={`sst-${sst.id}`} />
                   <label htmlFor={`sst-${sst.id}`} className="text-sm text-gray-700 flex-1 cursor-pointer">{sst.label}</label>
                   {isSelected(sst.id) && (
-                    <select value={selected.find(s => s.subSubThemeId === sst.id)?.expectedLevel || "FONDAMENTAL"}
-                      onChange={e => setLevel(sst.id, e.target.value)}
-                      className="text-xs border border-gray-200 rounded px-1 py-0.5">
-                      {LEVELS.map(l => <option key={l} value={l}>{levelLabels[l]}</option>)}
-                    </select>
+                    <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
+                      <span>jusqu'à</span>
+                      <select value={selected.find(s => s.subSubThemeId === sst.id)?.expectedLevel || "COMPLET"}
+                        onChange={e => setLevel(sst.id, e.target.value)}
+                        title={`Niveau maximum pour ${sst.label}`}
+                        className="text-xs border border-gray-200 rounded px-1 py-0.5 font-medium text-gray-700">
+                        {LEVELS.map(l => <option key={l} value={l}>{levelLabels[l]}</option>)}
+                      </select>
+                    </div>
                   )}
                 </div>
               ))}

@@ -305,9 +305,12 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
       // 2. Les 2 questions auto et l'open ont été posées → le SST sera arrêté après l'answer
 
       // Si moins de 3 questions auto disponibles au niveau → passer directement au niveau suivant
+      const competenceForMax = session.test.competences.find((c: any) => c.subSubThemeId === pendingProgress.subSubThemeId);
+      const maxLevelForSST = (competenceForMax?.expectedLevel as string) || "COMPLET";
       if (autoQ.length === 0 && levelAutoAsked < 3) {
         const next = nextLevel(currentLevel);
-        if (!next) {
+        const nextExceedsMaxBank = next ? LEVEL_ORDER.indexOf(next) > LEVEL_ORDER.indexOf(maxLevelForSST) : false;
+        if (!next || nextExceedsMaxBank) {
           // Aucun niveau suivant → finir le SST
           await prisma.testSessionProgress.update({
             where: { id: pendingProgress.id },
@@ -453,11 +456,13 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
 
     if (!isOpenOrScenario) {
       if (newLevelCorrectCount >= 2) {
-        // 2 bonnes réponses auto → passer au niveau suivant
+        // 2 bonnes réponses auto → passer au niveau suivant (ou terminer si niveau max atteint)
         const next = nextLevel(progressItem.currentLevel as string);
         newLevelReached = progressItem.currentLevel as string;
-        if (!next) {
-          // Niveau COMPLET réussi → SST terminé avec succès
+        const competence = session.test.competences.find((c: any) => c.subSubThemeId === subSubThemeId);
+        const maxLevel = (competence?.expectedLevel as string) || "COMPLET";
+        const nextExceedsMax = next ? LEVEL_ORDER.indexOf(next) > LEVEL_ORDER.indexOf(maxLevel) : false;
+        if (!next || nextExceedsMax) {
           completed = true;
           passed = true;
         } else {

@@ -61,7 +61,7 @@ router.post("/", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next
             subSubThemeId: c.subSubThemeId || null,
             subThemeId: c.subThemeId || null,
             questionCount: c.questionCount || 3,
-            expectedLevel: c.expectedLevel || "FONDAMENTAL",
+            expectedLevel: c.expectedLevel || "COMPLET",
           }))
         }
       },
@@ -88,7 +88,7 @@ router.put("/:id", authenticate, requireRole("SUPER_ADMIN"), async (req, res, ne
             subSubThemeId: c.subSubThemeId || null,
             subThemeId: c.subThemeId || null,
             questionCount: c.questionCount || 3,
-            expectedLevel: c.expectedLevel || "FONDAMENTAL",
+            expectedLevel: c.expectedLevel || "COMPLET",
           }))
         }
       },
