@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import {
   Plus, Pencil, X, Copy, Check, ClipboardList, FileSpreadsheet, Upload,
   AlertTriangle, SlidersHorizontal, ChevronDown, ChevronRight,
-  Mail, RefreshCw, Eye, EyeOff, Send,
+  Mail, RefreshCw, Eye, EyeOff, Send, Trash2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -427,6 +427,21 @@ export default function SuperAdminClients() {
     } catch { toast.error(t("loadingError")); }
   }
 
+  async function handleDeleteClient(client: Client) {
+    const confirmed = window.confirm(
+      `Supprimer l'entreprise "${client.name}" ?\n\nCette action est irréversible et supprimera tous les employés, utilisateurs et données associés.`
+    );
+    if (!confirmed) return;
+    try {
+      const res = await fetch(`/api/super-admin/clients/${client.id}`, {
+        method: "DELETE", headers: authHeaders,
+      });
+      if (!res.ok) throw new Error();
+      toast.success(`Entreprise "${client.name}" supprimée`);
+      setClients(prev => prev.filter(c => c.id !== client.id));
+    } catch { toast.error(t("loadingError")); }
+  }
+
   // ITER11: réinitialiser le mot de passe de l'admin client
   async function handleResetAdminPassword(clientId: number) {
     if (!window.confirm(t("resetPasswordAction") + " ?")) return;
@@ -531,6 +546,11 @@ export default function SuperAdminClients() {
                       <button onClick={() => openEditModal(client)}
                         className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500">
                         <Pencil size={14} />
+                      </button>
+                      <button onClick={() => handleDeleteClient(client)}
+                        title="Supprimer l'entreprise"
+                        className="p-1.5 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-600">
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>

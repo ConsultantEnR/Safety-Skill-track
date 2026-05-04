@@ -239,6 +239,42 @@ router.post("/:id/reset-admin-password", authenticate, requireRole("SUPER_ADMIN"
   } catch (err) { next(err); }
 });
 
+router.delete("/:id", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next) => {
+  try {
+    const clientId = Number(req.params.id);
+    const client = await prisma.client.findUnique({ where: { id: clientId } });
+    if (!client) return res.status(404).json({ error: "Client non trouvé", code: "NOT_FOUND" });
+
+    const employees = await prisma.employee.findMany({ where: { clientId }, select: { id: true } });
+    const empIds = employees.map(e => e.id);
+
+    const sessions = await prisma.testSession.findMany({ where: { employeeId: { in: empIds } }, select: { id: true } });
+    const sessionIds = sessions.map(s => s.id);
+
+    await prisma.testSessionProgress.deleteMany({ where: { sessionId: { in: sessionIds } } });
+    await prisma.openResponse.deleteMany({ where: { employeeId: { in: empIds } } });
+    await prisma.testSession.deleteMany({ where: { employeeId: { in: empIds } } });
+    await prisma.testAssignment.deleteMany({ where: { employeeId: { in: empIds } } });
+    await prisma.employee.deleteMany({ where: { clientId } });
+
+    const users = await prisma.user.findMany({ where: { clientId }, select: { id: true } });
+    const userIds = users.map(u => u.id);
+    await prisma.notification.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.refreshToken.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.passwordResetToken.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.user.deleteMany({ where: { clientId } });
+
+    await prisma.testSelection.deleteMany({ where: { clientId } });
+    const clientTests = await prisma.clientTest.findMany({ where: { clientId }, select: { id: true } });
+    await prisma.clientTestLevel.deleteMany({ where: { clientTestId: { in: clientTests.map(ct => ct.id) } } });
+    await prisma.clientTest.deleteMany({ where: { clientId } });
+    await prisma.message.deleteMany({ where: { toClientId: clientId } });
+
+    await prisma.client.delete({ where: { id: clientId } });
+    res.json({ message: "Entreprise supprimée" });
+  } catch (err) { next(err); }
+});
+
 // Send all credentials for a client
 router.post("/:clientId/send-all-credentials", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next) => {
   try {
