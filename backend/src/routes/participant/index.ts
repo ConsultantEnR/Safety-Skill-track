@@ -304,8 +304,8 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
       // 1. Plus de questions auto disponibles (stock épuisé avant 2 posées)
       // 2. Les 2 questions auto et l'open ont été posées → le SST sera arrêté après l'answer
 
-      // Si moins de 2 questions auto disponibles au niveau → passer directement au niveau suivant
-      if (autoQ.length === 0 && levelAutoAsked < 2) {
+      // Si moins de 3 questions auto disponibles au niveau → passer directement au niveau suivant
+      if (autoQ.length === 0 && levelAutoAsked < 3) {
         const next = nextLevel(currentLevel);
         if (!next) {
           // Aucun niveau suivant → finir le SST

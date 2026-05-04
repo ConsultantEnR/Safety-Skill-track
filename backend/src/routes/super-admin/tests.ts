@@ -60,7 +60,7 @@ router.post("/", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next
           create: (competences || []).map((c: any) => ({
             subSubThemeId: c.subSubThemeId || null,
             subThemeId: c.subThemeId || null,
-            questionCount: c.questionCount || 2,
+            questionCount: c.questionCount || 3,
             expectedLevel: c.expectedLevel || "FONDAMENTAL",
           }))
         }
@@ -87,7 +87,7 @@ router.put("/:id", authenticate, requireRole("SUPER_ADMIN"), async (req, res, ne
           create: (competences || []).map((c: any) => ({
             subSubThemeId: c.subSubThemeId || null,
             subThemeId: c.subThemeId || null,
-            questionCount: c.questionCount || 2,
+            questionCount: c.questionCount || 3,
             expectedLevel: c.expectedLevel || "FONDAMENTAL",
           }))
         }
