@@ -148,7 +148,7 @@ router.post("/tests/:testId/start", authenticate, requireRole("EMPLOYEE"), async
               .filter(c => c.subSubThemeId)
               .map(c => ({
                 subSubThemeId: c.subSubThemeId!,
-                currentLevel: "FONDAMENTAL", // ITER11: toujours commencer par FONDAMENTAL
+                currentLevel: (c.expectedLevel as string) || "FONDAMENTAL",
               })),
           },
         },

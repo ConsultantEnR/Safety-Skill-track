@@ -38,6 +38,10 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
   );
 }
 
+const LEVEL_SHORT: Record<string, string> = {
+  FONDAMENTAL: "F", BASIQUE: "B", INTERMEDIAIRE: "I", AVANCE: "A", COMPLET: "C",
+};
+
 function SubSubThemeSelector({ themes, selected, onChange }: {
   themes: Theme[];
   selected: { subSubThemeId: number; expectedLevel: string }[];
@@ -48,34 +52,54 @@ function SubSubThemeSelector({ themes, selected, onChange }: {
     lang === "en" && item.nameEn ? item.nameEn : item.label;
   const [openThemes, setOpenThemes] = useState<Set<number>>(new Set());
   const [openSubThemes, setOpenSubThemes] = useState<Set<number>>(new Set());
+
   function toggleSet<T>(set: Set<T>, id: T, setter: React.Dispatch<React.SetStateAction<Set<T>>>) {
     const n = new Set(set); n.has(id) ? n.delete(id) : n.add(id); setter(n);
   }
-  function isSelected(sstId: number) { return selected.some(s => s.subSubThemeId === sstId); }
-  function toggleSST(sstId: number) {
-    if (isSelected(sstId)) onChange(selected.filter(s => s.subSubThemeId !== sstId));
-    else onChange([...selected, { subSubThemeId: sstId, expectedLevel: "COMPLET" }]);
+  function isLevelSelected(sstId: number, level: string) {
+    return selected.some(s => s.subSubThemeId === sstId && s.expectedLevel === level);
   }
-  function setLevel(sstId: number, level: string) {
-    onChange(selected.map(s => s.subSubThemeId === sstId ? { ...s, expectedLevel: level } : s));
+  function hasAnyLevel(sstId: number) {
+    return selected.some(s => s.subSubThemeId === sstId);
   }
-  function allSSTSelected(st: SubTheme) {
-    return st.subSubThemes.length > 0 && st.subSubThemes.every(sst => isSelected(sst.id));
+  function hasAllLevels(sstId: number) {
+    return LEVELS.every(l => isLevelSelected(sstId, l));
   }
-  function toggleAllSST(st: SubTheme) {
-    if (allSSTSelected(st)) {
-      onChange(selected.filter(s => !st.subSubThemes.some(sst => sst.id === s.subSubThemeId)));
+  function toggleLevel(sstId: number, level: string) {
+    if (isLevelSelected(sstId, level)) {
+      onChange(selected.filter(s => !(s.subSubThemeId === sstId && s.expectedLevel === level)));
     } else {
-      const toAdd = st.subSubThemes
-        .filter(sst => !isSelected(sst.id))
-        .map(sst => ({ subSubThemeId: sst.id, expectedLevel: "COMPLET" }));
-      onChange([...selected, ...toAdd]);
+      onChange([...selected, { subSubThemeId: sstId, expectedLevel: level }]);
     }
   }
+  function toggleAllLevels(sstId: number) {
+    if (hasAllLevels(sstId)) {
+      onChange(selected.filter(s => s.subSubThemeId !== sstId));
+    } else {
+      const without = selected.filter(s => s.subSubThemeId !== sstId);
+      onChange([...without, ...LEVELS.map(l => ({ subSubThemeId: sstId, expectedLevel: l }))]);
+    }
+  }
+  function allSSTAllLevels(st: SubTheme) {
+    return st.subSubThemes.length > 0 && st.subSubThemes.every(sst => hasAllLevels(sst.id));
+  }
+  function toggleAllSSTAllLevels(st: SubTheme) {
+    if (allSSTAllLevels(st)) {
+      onChange(selected.filter(s => !st.subSubThemes.some(sst => sst.id === s.subSubThemeId)));
+    } else {
+      const without = selected.filter(s => !st.subSubThemes.some(sst => sst.id === s.subSubThemeId));
+      const toAdd = st.subSubThemes.flatMap(sst => LEVELS.map(l => ({ subSubThemeId: sst.id, expectedLevel: l })));
+      onChange([...without, ...toAdd]);
+    }
+  }
+
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto">
-      <div className="px-3 py-1.5 bg-blue-50 border-b border-blue-100 text-xs text-blue-600">
-        Sélectionnez les sous-sous-thèmes et définissez le <strong>niveau maximum</strong> à atteindre (de Fondamental jusqu'à ce niveau).
+    <div className="border border-gray-200 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+      <div className="px-3 py-1.5 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 flex items-center gap-4">
+        <span>Cochez les niveaux à tester pour chaque sous-thème.</span>
+        <span className="flex gap-1 items-center text-gray-400">
+          {LEVELS.map(l => <span key={l} className="w-5 text-center font-bold">{LEVEL_SHORT[l]}</span>)}
+        </span>
       </div>
       {themes.map(theme => (
         <div key={theme.id}>
@@ -86,35 +110,43 @@ function SubSubThemeSelector({ themes, selected, onChange }: {
           </button>
           {openThemes.has(theme.id) && theme.subThemes.map(st => (
             <div key={st.id}>
-              <div className="flex items-center gap-2 w-full px-6 py-1.5 bg-white hover:bg-gray-50">
+              <div className="flex items-center gap-2 px-6 py-1.5 bg-white hover:bg-gray-50">
                 <button type="button" onClick={() => toggleSet(openSubThemes, st.id, setOpenSubThemes)}
                   className="flex items-center gap-1 text-sm text-left text-gray-600 flex-1">
                   {openSubThemes.has(st.id) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   {tl(st)}
                 </button>
                 {st.subSubThemes.length > 0 && (
-                  <button type="button" onClick={() => toggleAllSST(st)}
-                    className={`text-xs px-2 py-0.5 rounded font-medium ${allSSTSelected(st) ? "bg-red-50 text-red-500 hover:bg-red-100" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}>
-                    {allSSTSelected(st) ? "Tout désélectionner" : "Tout sélectionner"}
+                  <button type="button" onClick={() => toggleAllSSTAllLevels(st)}
+                    className={`text-xs px-2 py-0.5 rounded font-medium shrink-0 ${allSSTAllLevels(st) ? "bg-red-50 text-red-500 hover:bg-red-100" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}>
+                    {allSSTAllLevels(st) ? "Tout désélectionner" : "Tout sélectionner"}
                   </button>
                 )}
               </div>
               {openSubThemes.has(st.id) && st.subSubThemes.map(sst => (
                 <div key={sst.id} className="flex items-center gap-2 px-10 py-1.5 bg-white hover:bg-gray-50">
-                  <input type="checkbox" checked={isSelected(sst.id)} onChange={() => toggleSST(sst.id)}
-                    className="rounded" id={`sst-${sst.id}`} />
-                  <label htmlFor={`sst-${sst.id}`} className="text-sm text-gray-700 flex-1 cursor-pointer">{sst.label}</label>
-                  {isSelected(sst.id) && (
-                    <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
-                      <span>jusqu'à</span>
-                      <select value={selected.find(s => s.subSubThemeId === sst.id)?.expectedLevel || "COMPLET"}
-                        onChange={e => setLevel(sst.id, e.target.value)}
-                        title={`Niveau maximum pour ${sst.label}`}
-                        className="text-xs border border-gray-200 rounded px-1 py-0.5 font-medium text-gray-700">
-                        {LEVELS.map(l => <option key={l} value={l}>{levelLabels[l]}</option>)}
-                      </select>
-                    </div>
-                  )}
+                  <span className={`text-sm flex-1 ${hasAnyLevel(sst.id) ? "text-gray-900 font-medium" : "text-gray-500"}`}>
+                    {sst.label}
+                  </span>
+                  <div className="flex gap-1 shrink-0">
+                    {LEVELS.map(level => {
+                      const active = isLevelSelected(sst.id, level);
+                      return (
+                        <button key={level} type="button"
+                          title={levelLabels[level]}
+                          onClick={() => toggleLevel(sst.id, level)}
+                          className={`w-6 h-6 rounded text-xs font-bold transition-colors ${active ? "text-white" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}
+                          style={active ? { backgroundColor: SA_PRIMARY } : {}}>
+                          {LEVEL_SHORT[level]}
+                        </button>
+                      );
+                    })}
+                    <button type="button" title={hasAllLevels(sst.id) ? "Tout désélectionner" : "Sélectionner tous les niveaux"}
+                      onClick={() => toggleAllLevels(sst.id)}
+                      className="w-6 h-6 rounded text-xs font-bold bg-gray-100 text-gray-400 hover:bg-indigo-100 hover:text-indigo-600 transition-colors">
+                      {hasAllLevels(sst.id) ? "×" : "↻"}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -241,7 +273,7 @@ export default function SuperAdminTests() {
               <h1 className="text-2xl font-bold text-gray-900">{t("tests")}</h1> {/* ITER9 */}
               <p className="text-sm text-gray-500 mt-1">{tests.length} test{tests.length !== 1 ? "s" : ""}</p>
             </div>
-            <button onClick={openCreate}
+            <button type="button" onClick={openCreate}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white"
               style={{ backgroundColor: SA_PRIMARY }}>
               <Plus size={16} /> {t("createTest")} {/* ITER9 */}
@@ -252,6 +284,7 @@ export default function SuperAdminTests() {
           <div className="flex items-center gap-3 mb-6">
             <Building2 size={16} className="text-gray-400" />
             <select value={filterClient} onChange={e => setFilterClient(e.target.value)}
+              title={t("allTests")}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none">
               <option value="">{t("allTests")}</option> {/* ITER9 */}
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -289,11 +322,11 @@ export default function SuperAdminTests() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={e => { e.stopPropagation(); openEdit(test); }}
+                      <button type="button" title={t("editTest")} onClick={e => { e.stopPropagation(); openEdit(test); }}
                         className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
                         <Pencil size={15} />
                       </button>
-                      <button onClick={e => { e.stopPropagation(); handleDelete(test.id); }}
+                      <button type="button" title={t("deleteTest")} onClick={e => { e.stopPropagation(); handleDelete(test.id); }}
                         className="p-2 hover:bg-red-50 rounded-lg text-red-400">
                         <Trash2 size={15} />
                       </button>
@@ -330,12 +363,14 @@ export default function SuperAdminTests() {
           <form onSubmit={handleSave} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t("testName")} *</label> {/* ITER9 */}
-              <input type="text" value={name} onChange={e => setName(e.target.value)} required
+              <input type="text" id="test-name" value={name} onChange={e => setName(e.target.value)} required
+                title={t("testName")} placeholder={t("testName")}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t("description")}</label> {/* ITER9 */}
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
+              <textarea id="test-description" value={description} onChange={e => setDescription(e.target.value)} rows={2}
+                title={t("description")} placeholder={t("description")}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
             </div>
             <div className="flex items-center gap-4">
