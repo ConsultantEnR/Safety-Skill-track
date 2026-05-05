@@ -839,7 +839,10 @@ export default function SuperAdminClients() {
       {showLevelsModal && levelsClientTest && (
         <Modal title={`Niveaux attendus – ${levelsClientTest.test.name}`} onClose={() => setShowLevelsModal(false)} wide>
           <div className="space-y-3">
-            {levelsClientTest.test.competences.filter(c => c.subSubThemeId).map(c => (
+            {levelsClientTest.test.competences
+              .filter(c => c.subSubThemeId)
+              .filter((c, idx, arr) => arr.findIndex(x => x.subSubThemeId === c.subSubThemeId) === idx)
+              .map(c => (
               <div key={c.subSubThemeId} className="flex items-center justify-between gap-4">
                 <span className="text-sm text-gray-700 flex-1">{getSST(c.subSubThemeId)}</span>
                 <div className="flex flex-col items-end gap-1">
