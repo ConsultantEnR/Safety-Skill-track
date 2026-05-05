@@ -241,7 +241,7 @@ export default function ParticipantDashboard() {
               <div className="space-y-3">
                 {activeTests.map(a => {
                   const isInProgress = a.status === "IN_PROGRESS" || (a.session && a.session.status === "IN_PROGRESS");
-                  const totalComp = a.test.competences?.length || 0;
+                  const totalComp = new Set((a.test.competences || []).map((c: any) => c.subSubThemeId).filter(Boolean)).size || 0;
                   const doneComp = a.session?.progress?.filter(p => p.completed).length || 0;
                   return (
                     <div key={a.id} className="border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition-colors">

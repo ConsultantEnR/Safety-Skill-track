@@ -716,7 +716,7 @@ export default function ParticipantTests() {
               <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2 text-sm text-gray-600">
                 <p className="flex items-center gap-2">
                   <span className="font-medium">Compétences évaluées :</span>
-                  <span>{confirmingTest.test.competences?.length || 0}</span>
+                  <span>{new Set((confirmingTest.test.competences || []).map((c: any) => c.subSubThemeId).filter(Boolean)).size}</span>
                 </p>
                 {confirmingTest.test.timerEnabled && confirmingTest.test.timerDuration && (
                   <p className="flex items-center gap-2">
@@ -794,7 +794,7 @@ export default function ParticipantTests() {
                           <p className="text-xs text-gray-500 mt-0.5">{a.test.description}</p>
                         )}
                         <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                          <span>{a.test.competences?.length || 0} {t("competences").toLowerCase()}</span>
+                          <span>{new Set((a.test.competences || []).map((c: any) => c.subSubThemeId).filter(Boolean)).size} {t("competences").toLowerCase()}</span>
                           {a.test.timerEnabled && (
                             <span className="flex items-center gap-1">
                               <Timer size={10} /> {a.test.timerDuration} min
