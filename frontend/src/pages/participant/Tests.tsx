@@ -1,13 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import PageShell from "../../components/PageShell";
 import { useAuth } from "../../contexts/AuthContext";
-import { useI18n } from "../../contexts/I18nContext"; // ITER9
+import { useI18n } from "../../contexts/I18nContext";
 import ParticipantSidebar from "./Sidebar";
 import { resolveAssetUrl } from "../../lib/runtime";
 import toast from "react-hot-toast";
-import { Play, RotateCcw, Eye, CheckCircle, Clock, Timer, ChevronDown, ChevronRight } from "lucide-react";
-
-// ITER7: Interfaces de données
+import { Play, RotateCcw, Eye, CheckCircle, Clock, Timer, ChevronDown, ChevronRight, X } from "lucide-react";
 
 interface SessionProgress {
   id: number;
@@ -18,9 +16,9 @@ interface SessionProgress {
   completed: boolean;
   passed: boolean;
   currentLevel: string;
-  levelReached?: string;  // ITER10
-  pointsEarned?: number;  // ITER10
-  maxPoints?: number;     // ITER10
+  levelReached?: string;
+  pointsEarned?: number;
+  maxPoints?: number;
 }
 
 interface Session {
@@ -61,24 +59,19 @@ interface Profile {
   };
 }
 
-// ITER7: Interface pour les données de question retournées par l'API
 interface QuestionData {
   done: boolean;
   question?: {
     id: number;
     text: string;
     type: string;
-    options?: { choices: string[]; correctIndex: number; correctIndexes?: number[] }; // ITER11: multi-answer
+    options?: { choices: string[]; correctIndex: number; correctIndexes?: number[] };
     expectedAnswer?: string;
   };
   subSubThemeId?: number;
   progressItem?: { questionsAsked: number; currentLevel: string };
-  isLast?: boolean;
-  totalQuestions?: number;
-  questionNumber?: number;
 }
 
-// ITER7: Formatage du temps en mm:ss ou h:mm:ss
 function formatTime(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
@@ -87,7 +80,6 @@ function formatTime(secs: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-// ITER7: Nouveau TestRunner avec vraies questions depuis l'API
 function TestRunner({
   assignment,
   session,
@@ -103,18 +95,15 @@ function TestRunner({
   accentColor: string;
   accessToken: string;
 }) {
-  const { t } = useI18n(); // ITER11
-  // ITER7: État interne du runner
+  const { t } = useI18n();
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | number | null>(null);
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]); // ITER11: multi-answer QCM
+  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
   const [answered, setAnswered] = useState(false);
   const [loadingQ, setLoadingQ] = useState(true);
-  const [fillAnswer, setFillAnswer] = useState(""); // pour OPEN / SCENARIO / RANKING
+  const [fillAnswer, setFillAnswer] = useState("");
   const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
   const [questionCount, setQuestionCount] = useState(0);
-
-  // ITER7: Timer global de session
   const [timeLeft, setTimeLeft] = useState<number | null>(session.timeRemaining ?? null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -123,37 +112,30 @@ function TestRunner({
     "Content-Type": "application/json",
   };
 
-  // ITER7: Démarrage du timer si activé
   useEffect(() => {
     if (timeLeft === null || timeLeft <= 0) return;
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
         if (t === null || t <= 1) {
           clearInterval(timerRef.current!);
-          onComplete(); // Auto-submit à expiration
+          onComplete();
           return 0;
         }
         return t - 1;
       });
     }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  // ITER7: Récupère la question suivante depuis l'API
   const fetchNextQuestion = useCallback(async () => {
     setLoadingQ(true);
     setSelectedAnswer(null);
-    setSelectedAnswers([]); // ITER11
+    setSelectedAnswers([]);
     setFillAnswer("");
     setAnswered(false);
     setFeedback(null);
     try {
-      const res = await fetch(
-        `/api/participant/sessions/${session.id}/next-question`,
-        { headers: authHeaders }
-      );
+      const res = await fetch(`/api/participant/sessions/${session.id}/next-question`, { headers: authHeaders });
       if (!res.ok) throw new Error("Erreur lors du chargement de la question");
       const data: QuestionData = await res.json();
       setCurrentQuestion(data);
@@ -169,51 +151,38 @@ function TestRunner({
     }
   }, [session.id, accessToken]);
 
-  // ITER7: Chargement initial au montage
-  useEffect(() => {
-    fetchNextQuestion();
-  }, []);
+  useEffect(() => { fetchNextQuestion(); }, []);
 
-  // ITER7: Soumission de la réponse à l'API puis passage à la question suivante
   async function handleSubmit() {
     if (!currentQuestion?.question || !currentQuestion.subSubThemeId) return;
     const q = currentQuestion.question;
 
-    // Détermine si la réponse est correcte (uniquement possible pour QCM et TRUE_FALSE)
     let userAnswer: string | number | string[] = "";
     let correct: boolean | null = null;
 
     if (q.type === "QCM") {
       const isMultiAnswer = (q.options?.correctIndexes?.length ?? 0) > 1;
       if (isMultiAnswer) {
-        // ITER11: envoyer tableau de textes pour comparaison côté backend
         const choices = getChoices(q.options!);
         userAnswer = selectedAnswers.map(idx => choices[idx]);
-        correct = null; // évalué côté serveur
+        correct = null;
       } else {
         userAnswer = selectedAnswer as number;
         correct = selectedAnswer === q.options?.correctIndex;
       }
     } else if (q.type === "TRUE_FALSE") {
       userAnswer = selectedAnswer as string;
-      // Le backend évalue la correction pour TRUE_FALSE si expectedAnswer est fourni
       correct = q.expectedAnswer
         ? String(selectedAnswer).toLowerCase() === String(q.expectedAnswer).toLowerCase()
         : null;
     } else {
-      // OPEN / SCENARIO / RANKING : réponse texte libre, évaluation côté backend
       userAnswer = fillAnswer.trim();
       correct = null;
     }
 
     setAnswered(true);
+    if (correct !== null) setFeedback(correct ? "correct" : "incorrect");
 
-    // ITER7: Affichage feedback visuel (QCM / TRUE_FALSE uniquement)
-    if (correct !== null) {
-      setFeedback(correct ? "correct" : "incorrect");
-    }
-
-    // ITER8: Envoi de la réponse au backend — vérifie allDone pour éviter fetchNextQuestion sur session terminée
     let answerData: any = {};
     try {
       const answerRes = await fetch(`/api/participant/sessions/${session.id}/answer`, {
@@ -232,26 +201,20 @@ function TestRunner({
       toast.error("Erreur lors de l'enregistrement de la réponse");
     }
 
-    // ITER8: Si toutes les questions sont terminées, appeler onComplete directement
     if (answerData.allDone) {
       const delay = correct !== null ? 1500 : 0;
       setTimeout(() => onComplete(), delay);
       return;
     }
 
-    // Sinon, charger la question suivante
     const delay = correct !== null ? 1500 : 0;
-    setTimeout(() => {
-      fetchNextQuestion();
-    }, delay);
+    setTimeout(() => fetchNextQuestion(), delay);
   }
 
-  // ITER7: Calcul progression basée sur le progress de la session
   const totalComps = (session.progress || []).length;
   const doneComps = (session.progress || []).filter(p => p.completed).length;
   const progressPct = totalComps > 0 ? Math.round((doneComps / totalComps) * 100) : 0;
 
-  // ITER7: Rendu — état de chargement
   if (loadingQ) {
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-3">
@@ -262,7 +225,6 @@ function TestRunner({
     );
   }
 
-  // ITER7: Si done retourné par l'API avant qu'onComplete soit appelé
   if (!currentQuestion || currentQuestion.done) {
     return (
       <div className="text-center py-8">
@@ -281,15 +243,12 @@ function TestRunner({
 
   const q = currentQuestion.question!;
 
-  // ITER8: s'assure que choices est toujours un tableau
   const getChoices = (opts: any): string[] => {
     if (!opts) return [];
     const raw = opts.choices;
     if (Array.isArray(raw)) return raw;
     if (typeof raw === "string" && raw.length > 0) {
-      // Essaie de parser comme JSON d'abord
       try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) return parsed; } catch {}
-      // Sinon split par séparateur courant
       if (raw.includes(" / ")) return raw.split(" / ").map((s: string) => s.trim()).filter(Boolean);
       if (raw.includes("/")) return raw.split("/").map((s: string) => s.trim()).filter(Boolean);
       if (raw.includes(";")) return raw.split(";").map((s: string) => s.trim()).filter(Boolean);
@@ -299,7 +258,6 @@ function TestRunner({
     return [];
   };
 
-  // ITER7: Badge de type de question
   const typeBadge: Record<string, { label: string; color: string }> = {
     QCM: { label: "QCM", color: "#6366f1" },
     TRUE_FALSE: { label: "Vrai / Faux", color: "#0ea5e9" },
@@ -308,8 +266,6 @@ function TestRunner({
     RANKING: { label: "Classement", color: "#10b981" },
   };
   const badge = typeBadge[q.type] || { label: q.type, color: "#6b7280" };
-
-  // ITER7: Détermine si le bouton Valider est actif
   const isMultiAnswerQCM = q.type === "QCM" && (q.options?.correctIndexes?.length ?? 0) > 1;
   const canSubmit =
     !answered &&
@@ -321,39 +277,31 @@ function TestRunner({
 
   return (
     <div className="space-y-6">
-      {/* ITER7: Header — progression + timer */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
             <span>Progression</span>
-            <span>{doneComps}/{totalComps} {/* ITER9: Domaines de compétence */}domaines</span>
+            <span>{doneComps}/{totalComps} domaines</span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%`, backgroundColor: accentColor }}
-            />
+            <div className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${progressPct}%`, backgroundColor: accentColor }} />
           </div>
         </div>
         {timeLeft !== null && (
-          <div
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold ${
-              timeLeft < 60 ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"
-            }`}
-          >
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold ${
+            timeLeft < 60 ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"
+          }`}>
             <Timer size={14} />
             {formatTime(timeLeft)}
           </div>
         )}
       </div>
 
-      {/* ITER7: Carte question */}
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 space-y-3">
         <div className="flex items-center justify-between">
-          <span
-            className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold text-white"
-            style={{ backgroundColor: badge.color }}
-          >
+          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold text-white"
+            style={{ backgroundColor: badge.color }}>
             {badge.label}
           </span>
           {currentQuestion.progressItem && (
@@ -365,12 +313,8 @@ function TestRunner({
         <p className="text-base font-semibold text-gray-800 leading-snug">{q.text}</p>
       </div>
 
-      {/* ITER7: Zone de réponse — selon le type */}
-
-      {/* QCM */}
       {q.type === "QCM" && q.options && (
         <div className="space-y-2">
-          {/* ITER11: multi-réponses = checkboxes */}
           {isMultiAnswerQCM && (
             <p className="text-xs text-indigo-600 font-medium mb-1">✦ {t("selectMultiple")}</p>
           )}
@@ -378,23 +322,17 @@ function TestRunner({
             if (isMultiAnswerQCM) {
               const isChecked = selectedAnswers.includes(idx);
               return (
-                <label
-                  key={idx}
-                  className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                <label key={idx}
+                  className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl border-2 transition-all ${
                     answered ? "cursor-default" : "cursor-pointer"
                   } ${isChecked ? "text-white" : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"}`}
-                  style={isChecked ? { borderColor: primaryColor, backgroundColor: primaryColor } : {}}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    disabled={answered}
+                  style={isChecked ? { borderColor: primaryColor, backgroundColor: primaryColor } : {}}>
+                  <input type="checkbox" checked={isChecked} disabled={answered}
                     onChange={() => {
                       if (answered) return;
                       setSelectedAnswers(prev => prev.includes(idx) ? prev.filter(x => x !== idx) : [...prev, idx]);
                     }}
-                    className="rounded"
-                  />
+                    className="rounded" />
                   <span className="mr-1 font-semibold text-xs opacity-60">{String.fromCharCode(65 + idx)}.</span>
                   {choice}
                 </label>
@@ -404,21 +342,14 @@ function TestRunner({
             const showCorrect = feedback !== null && idx === q.options!.correctIndex;
             const showWrong = feedback !== null && isSelected && idx !== q.options!.correctIndex;
             return (
-              <button
-                key={idx}
-                onClick={() => !answered && setSelectedAnswer(idx)}
-                disabled={answered}
+              <button key={idx} onClick={() => !answered && setSelectedAnswer(idx)} disabled={answered}
                 className={`w-full text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                  showCorrect
-                    ? "border-green-400 bg-green-50 text-green-800"
-                    : showWrong
-                    ? "border-red-400 bg-red-50 text-red-800"
-                    : isSelected
-                    ? "border-opacity-100 text-white"
+                  showCorrect ? "border-green-400 bg-green-50 text-green-800"
+                    : showWrong ? "border-red-400 bg-red-50 text-red-800"
+                    : isSelected ? "border-opacity-100 text-white"
                     : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                 }`}
-                style={isSelected && !feedback ? { borderColor: primaryColor, backgroundColor: primaryColor } : {}}
-              >
+                style={isSelected && !feedback ? { borderColor: primaryColor, backgroundColor: primaryColor } : {}}>
                 <span className="mr-2 font-semibold text-xs opacity-60">{String.fromCharCode(65 + idx)}.</span>
                 {choice}
               </button>
@@ -427,7 +358,6 @@ function TestRunner({
         </div>
       )}
 
-      {/* TRUE_FALSE */}
       {q.type === "TRUE_FALSE" && (
         <div className="grid grid-cols-2 gap-3">
           {(["true", "false"] as const).map(val => {
@@ -437,25 +367,14 @@ function TestRunner({
             const showCorrect = feedback !== null && val === expected;
             const showWrong = feedback !== null && isSelected && val !== expected;
             return (
-              <button
-                key={val}
-                onClick={() => !answered && setSelectedAnswer(val)}
-                disabled={answered}
+              <button key={val} onClick={() => !answered && setSelectedAnswer(val)} disabled={answered}
                 className={`py-4 rounded-xl border-2 text-sm font-semibold transition-all ${
-                  showCorrect
-                    ? "border-green-400 bg-green-50 text-green-800"
-                    : showWrong
-                    ? "border-red-400 bg-red-50 text-red-800"
-                    : isSelected
-                    ? "text-white"
+                  showCorrect ? "border-green-400 bg-green-50 text-green-800"
+                    : showWrong ? "border-red-400 bg-red-50 text-red-800"
+                    : isSelected ? "text-white"
                     : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                 }`}
-                style={
-                  isSelected && !feedback
-                    ? { borderColor: primaryColor, backgroundColor: primaryColor }
-                    : {}
-                }
-              >
+                style={isSelected && !feedback ? { borderColor: primaryColor, backgroundColor: primaryColor } : {}}>
                 {label}
               </button>
             );
@@ -463,27 +382,20 @@ function TestRunner({
         </div>
       )}
 
-      {/* OPEN / SCENARIO */}
       {(q.type === "OPEN" || q.type === "SCENARIO") && (
         <div className="space-y-2">
           <label className="block text-xs text-gray-500 font-medium">Votre réponse</label>
-          <textarea
-            rows={5}
-            disabled={answered}
-            value={fillAnswer}
+          <textarea rows={5} disabled={answered} value={fillAnswer}
             onChange={e => setFillAnswer(e.target.value)}
             placeholder="Rédigez votre réponse ici…"
             className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-800 bg-white resize-none focus:outline-none focus:ring-2"
-            style={{ "--tw-ring-color": primaryColor } as React.CSSProperties}
-          />
-          {/* ITER8: info correcteur pour questions ouvertes/scénarios */}
+            style={{ "--tw-ring-color": primaryColor } as React.CSSProperties} />
           <p className="text-xs text-amber-600 flex items-center gap-1">
             ℹ️ Votre réponse sera analysée par un correcteur.
           </p>
         </div>
       )}
 
-      {/* RANKING */}
       {q.type === "RANKING" && (
         <div className="space-y-2">
           <label className="block text-xs text-gray-500 font-medium">
@@ -491,7 +403,6 @@ function TestRunner({
           </label>
           {q.options && getChoices(q.options).length > 0 && (
             <ol className="mb-2 space-y-1">
-              {/* ITER8: getChoices normalise choices pour RANKING */}
               {getChoices(q.options).map((c, i) => (
                 <li key={i} className="text-sm text-gray-700">
                   <span className="font-semibold mr-1">{i + 1}.</span> {c}
@@ -499,57 +410,42 @@ function TestRunner({
               ))}
             </ol>
           )}
-          <textarea
-            rows={3}
-            disabled={answered}
-            value={fillAnswer}
+          <textarea rows={3} disabled={answered} value={fillAnswer}
             onChange={e => setFillAnswer(e.target.value)}
             placeholder="Ex : 3, 1, 4, 2"
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-800 bg-white resize-none focus:outline-none focus:ring-2"
-          />
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-800 bg-white resize-none focus:outline-none focus:ring-2" />
         </div>
       )}
 
-      {/* ITER7: Feedback visuel */}
       {feedback && (
-        <div
-          className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold ${
-            feedback === "correct"
-              ? "bg-green-50 text-green-700 border border-green-200"
-              : "bg-red-50 text-red-700 border border-red-200"
-          }`}
-        >
+        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold ${
+          feedback === "correct"
+            ? "bg-green-50 text-green-700 border border-green-200"
+            : "bg-red-50 text-red-700 border border-red-200"
+        }`}>
           {feedback === "correct" ? "✓ Bonne réponse !" : "✗ Réponse incorrecte"}
         </div>
       )}
 
-      {/* ITER7: Bouton Valider */}
-      <button
-        onClick={handleSubmit}
-        disabled={!canSubmit}
+      <button onClick={handleSubmit} disabled={!canSubmit}
         className="w-full py-3 rounded-xl text-white text-sm font-semibold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{ backgroundColor: primaryColor }}
-      >
+        style={{ backgroundColor: primaryColor }}>
         Valider
       </button>
     </div>
   );
 }
 
-// ITER7: Résultats d'une session (inchangé, nettoyé)
-// ITER9: assignment param ajouté pour récupérer les labels de sous-thème 2
 function SessionResults({
   session,
-  assignment,
   primaryColor,
   accentColor,
 }: {
   session: Session;
-  assignment?: TestAssignment;
   primaryColor: string;
   accentColor: string;
 }) {
-  const { t } = useI18n(); // ITER9
+  const { t } = useI18n();
   const total = (session?.progress || []).length;
   const passed = (session?.progress || []).filter(p => p.passed).length;
   const score = total > 0 ? Math.round((passed / total) * 100) : 0;
@@ -557,15 +453,12 @@ function SessionResults({
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 rounded-xl">
         <div className="text-center">
-          <p className="text-3xl font-bold" style={{ color: primaryColor }}>
-            {score}%
-          </p>
+          <p className="text-3xl font-bold" style={{ color: primaryColor }}>{score}%</p>
           <p className="text-xs text-gray-500">Score global</p>
         </div>
         <div className="h-12 w-px bg-gray-200" />
         <div className="text-center">
           <p className="text-3xl font-bold text-green-500">{passed}</p>
-          {/* ITER9: "Domaines de compétence validés" */}
           <p className="text-xs text-gray-500">{t("competences")} validées</p>
         </div>
         <div className="h-12 w-px bg-gray-200" />
@@ -575,7 +468,6 @@ function SessionResults({
         </div>
       </div>
 
-      {/* ITER9: Score par Domaine de compétence */}
       <div className="mt-4 space-y-2">
         <h4 className="text-sm font-semibold text-gray-700">{t("scoreBySkillArea")}</h4>
         {(session?.progress || []).map(prog => {
@@ -587,14 +479,16 @@ function SessionResults({
               <span className="flex-1 text-gray-600 text-xs">
                 {prog.subSubThemeLabel || `${t("competencyDomain")} ${prog.subSubThemeId}`}
                 {prog.currentLevel && (
-                  <span className="ml-1 text-gray-400">({prog.currentLevel.charAt(0) + prog.currentLevel.slice(1).toLowerCase()})</span>
+                  <span className="ml-1 text-gray-400">
+                    ({prog.currentLevel.charAt(0) + prog.currentLevel.slice(1).toLowerCase()})
+                  </span>
                 )}
               </span>
               <div className="w-24 bg-gray-100 rounded-full h-2">
-                <div className="h-2 rounded-full" style={{ width: `${scoreP}%`, backgroundColor: scoreP >= 70 ? "#22c55e" : "#f59e0b" }} />
+                <div className="h-2 rounded-full"
+                  style={{ width: `${scoreP}%`, backgroundColor: scoreP >= 70 ? "#22c55e" : "#f59e0b" }} />
               </div>
               <span className="text-xs text-gray-500 w-10 text-right">{scoreP}%</span>
-              {/* ITER10: points gagnés */}
               {(prog.maxPoints ?? 0) > 0 && (
                 <span className="text-xs text-gray-400">
                   ({prog.pointsEarned ?? 0}/{prog.maxPoints} pts)
@@ -603,7 +497,6 @@ function SessionResults({
               <span className={`text-xs font-semibold ${prog.passed ? "text-green-600" : "text-red-500"}`}>
                 {prog.passed ? t("passed") : t("failed")}
               </span>
-              {/* ITER10: niveau atteint */}
               {prog.levelReached && (
                 <span className="text-xs px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
                   {prog.levelReached.charAt(0) + prog.levelReached.slice(1).toLowerCase()}
@@ -620,18 +513,16 @@ function SessionResults({
             <span className="text-sm text-gray-700">
               {p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`}
               {p.levelReached && (
-                <span className="ml-1 text-xs text-gray-400">· {p.levelReached.charAt(0) + p.levelReached.slice(1).toLowerCase()}</span>
+                <span className="ml-1 text-xs text-gray-400">
+                  · {p.levelReached.charAt(0) + p.levelReached.slice(1).toLowerCase()}
+                </span>
               )}
             </span>
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-gray-500">
-                {p.correctCount}/{p.questionsAsked} correctes
-              </span>
-              <span
-                className={`px-2 py-0.5 rounded-full font-medium ${
-                  p.passed ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
-                }`}
-              >
+              <span className="text-gray-500">{p.correctCount}/{p.questionsAsked} correctes</span>
+              <span className={`px-2 py-0.5 rounded-full font-medium ${
+                p.passed ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+              }`}>
                 {p.passed ? t("passed") : t("failed")}
               </span>
             </div>
@@ -642,15 +533,16 @@ function SessionResults({
   );
 }
 
-// ITER7: Composant principal
 export default function ParticipantTests() {
   const { accessToken } = useAuth();
-  const { t } = useI18n(); // ITER9
+  const { t } = useI18n();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [assignments, setAssignments] = useState<TestAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTest, setActiveTest] = useState<{ assignment: TestAssignment; session: Session } | null>(null);
   const [viewingResult, setViewingResult] = useState<{ assignment: TestAssignment; session: Session } | null>(null);
+  // Pop-up "Passer le test" — sélection depuis "Tests à réaliser"
+  const [confirmingTest, setConfirmingTest] = useState<TestAssignment | null>(null);
   const [sections, setSections] = useState({ todo: true, inProgress: true, done: true });
 
   const authHeaders = {
@@ -658,9 +550,8 @@ export default function ParticipantTests() {
     "Content-Type": "application/json",
   };
 
-  // ITER7: Chargement des données — mapping session depuis test.sessions[0]
-  async function loadData() {
-    if (!accessToken) return;
+  async function loadData(): Promise<TestAssignment[]> {
+    if (!accessToken) return [];
     setLoading(true);
     try {
       const [prof, tests] = await Promise.all([
@@ -668,39 +559,50 @@ export default function ParticipantTests() {
         fetch("/api/participant/tests", { headers: authHeaders }).then(r => r.json()),
       ]);
       setProfile(prof);
-
-      // ITER7: Le backend retourne les sessions dans test.sessions[] — on mappe ici
       const mapped = (Array.isArray(tests) ? tests : []).map((a: any) => ({
         ...a,
         session: a.test?.sessions?.[0] || a.session || null,
       }));
       setAssignments(mapped);
+      return mapped;
     } catch {
       toast.error("Erreur de chargement");
+      return [];
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadData();
-  }, [accessToken]);
+  useEffect(() => { loadData(); }, [accessToken]);
 
   const primaryColor = profile?.client?.primaryColor || "#27295A";
   const accentColor  = profile?.client?.accentColor  || "#FCC00E";
   const logoUrl      = resolveAssetUrl(profile?.client?.logoUrl) || null;
   const companyName  = profile?.client?.name         || "";
 
-  // ITER7: Filtres de section — basés sur session mappée
-  const todo       = assignments.filter(a => a.status === "PENDING" && !a.session);
+  const todo       = assignments.filter(a => a.status === "PENDING");
   const inProgress = assignments.filter(
-    a =>
-      a.status === "IN_PROGRESS" ||
+    a => a.status === "IN_PROGRESS" ||
       (a.session && a.session.status === "IN_PROGRESS" && a.status !== "COMPLETED")
   );
   const done = assignments.filter(a => a.status === "COMPLETED");
 
-  // ITER7: Démarrage / reprise d'un test (sans rappel loadData inutile)
+  // "Passer le test" — active le test sans démarrer la session
+  async function handleActivate(a: TestAssignment) {
+    try {
+      const res = await fetch(`/api/participant/tests/${a.testId}/activate`, {
+        method: "POST",
+        headers: authHeaders,
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Erreur");
+      setConfirmingTest(null);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Impossible d'activer le test");
+    }
+  }
+
+  // "Commencer" / "Reprendre" — crée ou reprend la session et ouvre le questionnaire
   async function handleStart(a: TestAssignment) {
     try {
       const res = await fetch(`/api/participant/tests/${a.testId}/start`, {
@@ -715,81 +617,57 @@ export default function ParticipantTests() {
     }
   }
 
-  // ITER7: Complétion de session — appel /complete puis rechargement
+  // Fin de test — marque complété puis affiche automatiquement les résultats
   async function handleComplete() {
     if (!activeTest) return;
+    const testId = activeTest.assignment.testId;
     try {
       await fetch(`/api/participant/sessions/${activeTest.session.id}/complete`, {
         method: "POST",
         headers: authHeaders,
       });
-    } catch {
-      // On continue même en cas d'erreur réseau
-    }
+    } catch {}
     setActiveTest(null);
-    loadData();
+    const fresh = await loadData();
+    const completed = fresh.find(a => a.testId === testId && a.status === "COMPLETED");
+    if (completed?.session) {
+      setViewingResult({ assignment: completed, session: completed.session });
+    }
   }
 
   function toggleSection(key: keyof typeof sections) {
     setSections(s => ({ ...s, [key]: !s[key] }));
   }
 
-  function SectionHeader({
-    title,
-    count,
-    sectionKey,
-    color,
-  }: {
-    title: string;
-    count: number;
-    sectionKey: keyof typeof sections;
-    color: string;
+  function SectionHeader({ title, count, sectionKey, color }: {
+    title: string; count: number; sectionKey: keyof typeof sections; color: string;
   }) {
     return (
-      <button
-        onClick={() => toggleSection(sectionKey)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-      >
+      <button onClick={() => toggleSection(sectionKey)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
           <span className="font-semibold text-gray-700 text-sm">{title}</span>
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
-            {count}
-          </span>
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">{count}</span>
         </div>
-        {sections[sectionKey] ? (
-          <ChevronDown size={16} className="text-gray-400" />
-        ) : (
-          <ChevronRight size={16} className="text-gray-400" />
-        )}
+        {sections[sectionKey] ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
       </button>
     );
   }
 
-  // ITER7: Vue test en cours — priorité sur le reste
+  // Vue questionnaire actif
   if (activeTest) {
     return (
       <div className="flex h-screen overflow-hidden bg-gray-50">
-        <ParticipantSidebar
-          primaryColor={primaryColor}
-          accentColor={accentColor}
-          logoUrl={logoUrl}
-          companyName={companyName}
-        />
+        <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} />
         <PageShell>
           <div className="mb-6">
-            <button
-              onClick={() => setActiveTest(null)}
-              className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1"
-            >
+            <button onClick={() => setActiveTest(null)} className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1">
               ← Retour
             </button>
-            <h1 className="text-xl font-bold text-gray-800">
-              {activeTest.assignment.test.name}
-            </h1>
+            <h1 className="text-xl font-bold text-gray-800">{activeTest.assignment.test.name}</h1>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-6">
-            {/* ITER7: Nouveau TestRunner avec vraies questions */}
             <TestRunner
               assignment={activeTest.assignment}
               session={activeTest.session}
@@ -807,44 +685,84 @@ export default function ParticipantTests() {
   if (loading) {
     return (
       <div className="flex h-screen bg-gray-50">
-        <div className="flex-1 flex items-center justify-center text-gray-400">
-          Chargement…
-        </div>
+        <div className="flex-1 flex items-center justify-center text-gray-400">Chargement…</div>
       </div>
     );
   }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      <ParticipantSidebar
-        primaryColor={primaryColor}
-        accentColor={accentColor}
-        logoUrl={logoUrl}
-        companyName={companyName}
-      />
+      <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} />
       <PageShell>
         <h1 className="text-2xl font-bold text-gray-800 mb-6">{t("myTests")}</h1>
+
+        {/* Pop-up confirmation "Passer le test" */}
+        {confirmingTest && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800">{confirmingTest.test.name}</h2>
+                  {confirmingTest.test.description && (
+                    <p className="text-sm text-gray-500 mt-1">{confirmingTest.test.description}</p>
+                  )}
+                </div>
+                <button onClick={() => setConfirmingTest(null)} className="text-gray-400 hover:text-gray-600 ml-4 shrink-0">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2 text-sm text-gray-600">
+                <p className="flex items-center gap-2">
+                  <span className="font-medium">Compétences évaluées :</span>
+                  <span>{confirmingTest.test.competences?.length || 0}</span>
+                </p>
+                {confirmingTest.test.timerEnabled && confirmingTest.test.timerDuration && (
+                  <p className="flex items-center gap-2">
+                    <Timer size={14} className="text-amber-500" />
+                    <span>Durée limitée : {confirmingTest.test.timerDuration} minutes</span>
+                  </p>
+                )}
+                {confirmingTest.deadline && (
+                  <p className="flex items-center gap-2 text-orange-600">
+                    <Clock size={14} />
+                    <span>Échéance : {new Date(confirmingTest.deadline).toLocaleDateString("fr-FR")}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmingTest(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => handleActivate(confirmingTest)}
+                  className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-opacity"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Passer le test
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal résultats */}
         {viewingResult && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between p-5 border-b">
-                <h2 className="text-lg font-semibold">
-                  {viewingResult.assignment.test.name} — Résultats
-                </h2>
-                <button
-                  onClick={() => setViewingResult(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
+                <h2 className="text-lg font-semibold">{viewingResult.assignment.test.name} — Résultats</h2>
+                <button onClick={() => setViewingResult(null)} className="text-gray-400 hover:text-gray-600">
+                  <X size={20} />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-5">
-                {/* ITER9: passage de assignment pour les labels de domaine de compétence */}
                 <SessionResults
                   session={viewingResult.session}
-                  assignment={viewingResult.assignment}
                   primaryColor={primaryColor}
                   accentColor={accentColor}
                 />
@@ -854,14 +772,10 @@ export default function ParticipantTests() {
         )}
 
         <div className="space-y-4">
+
           {/* Section 1 : Tests à réaliser */}
           <div>
-            <SectionHeader
-              title="Tests à réaliser"
-              count={todo.length}
-              sectionKey="todo"
-              color="#6366f1"
-            />
+            <SectionHeader title="Tests à réaliser" count={todo.length} sectionKey="todo" color="#6366f1" />
             {sections.todo && (
               <div className="mt-2 space-y-3">
                 {todo.length === 0 ? (
@@ -870,7 +784,8 @@ export default function ParticipantTests() {
                   todo.map(a => (
                     <div
                       key={a.id}
-                      className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between"
+                      onClick={() => setConfirmingTest(a)}
+                      className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:border-indigo-300 hover:shadow-sm transition-all"
                     >
                       <div>
                         <p className="font-medium text-gray-800">{a.test.name}</p>
@@ -878,7 +793,6 @@ export default function ParticipantTests() {
                           <p className="text-xs text-gray-500 mt-0.5">{a.test.description}</p>
                         )}
                         <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                          {/* ITER9: "Domaines de compétence" */}
                           <span>{a.test.competences?.length || 0} {t("competences").toLowerCase()}</span>
                           {a.test.timerEnabled && (
                             <span className="flex items-center gap-1">
@@ -887,19 +801,19 @@ export default function ParticipantTests() {
                           )}
                           {a.deadline && (
                             <span className="text-orange-500">
-                              Échéance :{" "}
-                              {new Date(a.deadline).toLocaleDateString("fr-FR")}
+                              Échéance : {new Date(a.deadline).toLocaleDateString("fr-FR")}
                             </span>
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleStart(a)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-semibold"
-                        style={{ backgroundColor: primaryColor }}
-                      >
-                        <Play size={12} /> Commencer
-                      </button>
+                      <div className="shrink-0 ml-3">
+                        <div
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-semibold"
+                          style={{ backgroundColor: "#6366f1" }}
+                        >
+                          <Play size={12} /> Sélectionner
+                        </div>
+                      </div>
                     </div>
                   ))
                 )}
@@ -907,62 +821,50 @@ export default function ParticipantTests() {
             )}
           </div>
 
-          {/* ITER7: Section 2 : Tests en cours — session correctement mappée */}
+          {/* Section 2 : Tests en cours */}
           <div>
-            <SectionHeader
-              title="Tests en cours"
-              count={inProgress.length}
-              sectionKey="inProgress"
-              color="#f59e0b"
-            />
+            <SectionHeader title="Tests en cours" count={inProgress.length} sectionKey="inProgress" color="#f59e0b" />
             {sections.inProgress && (
               <div className="mt-2 space-y-3">
                 {inProgress.length === 0 ? (
                   <p className="text-sm text-gray-400 italic px-2">Aucun test en cours</p>
                 ) : (
                   inProgress.map(a => {
+                    const hasSession = a.session && a.session.status === "IN_PROGRESS";
                     const totalComps = a.session?.progress?.length || 0;
-                    const doneComps =
-                      a.session?.progress?.filter(p => p.completed).length || 0;
+                    const doneComps = a.session?.progress?.filter(p => p.completed).length || 0;
                     return (
-                      <div
-                        key={a.id}
-                        className="bg-white border border-amber-200 rounded-xl p-4"
-                      >
+                      <div key={a.id} className="bg-white border border-amber-200 rounded-xl p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1">
                             <p className="font-medium text-gray-800">{a.test.name}</p>
-                            {totalComps > 0 && (
+                            {hasSession && totalComps > 0 && (
                               <div className="mt-2">
                                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                                   <span>Progression</span>
-                                  {/* ITER9: "Domaines de compétence" */}
                                   <span>{doneComps}/{totalComps} {t("competences").toLowerCase()}</span>
                                 </div>
                                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full transition-all"
-                                    style={{
-                                      width: `${(doneComps / totalComps) * 100}%`,
-                                      backgroundColor: accentColor,
-                                    }}
-                                  />
+                                  <div className="h-full rounded-full transition-all"
+                                    style={{ width: `${(doneComps / totalComps) * 100}%`, backgroundColor: accentColor }} />
                                 </div>
                               </div>
                             )}
-                            {a.session?.timeRemaining !== null &&
-                              a.session?.timeRemaining !== undefined && (
-                                <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                                  <Clock size={10} /> Temps restant sauvegardé
-                                </p>
-                              )}
+                            {a.session?.timeRemaining !== null && a.session?.timeRemaining !== undefined && (
+                              <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                                <Clock size={10} /> Temps restant sauvegardé
+                              </p>
+                            )}
                           </div>
                           <button
                             onClick={() => handleStart(a)}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-semibold"
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-semibold shrink-0"
                             style={{ backgroundColor: "#f59e0b" }}
                           >
-                            <RotateCcw size={12} /> Reprendre
+                            {hasSession
+                              ? <><RotateCcw size={12} /> Reprendre</>
+                              : <><Play size={12} /> Commencer</>
+                            }
                           </button>
                         </div>
                       </div>
@@ -973,14 +875,9 @@ export default function ParticipantTests() {
             )}
           </div>
 
-          {/* Section 3 : Tests terminés */}
+          {/* Section 3 : Tests réalisés */}
           <div>
-            <SectionHeader
-              title="Tests réalisés"
-              count={done.length}
-              sectionKey="done"
-              color="#10b981"
-            />
+            <SectionHeader title="Tests réalisés" count={done.length} sectionKey="done" color="#10b981" />
             {sections.done && (
               <div className="mt-2 space-y-3">
                 {done.length === 0 ? (
@@ -988,54 +885,38 @@ export default function ParticipantTests() {
                 ) : (
                   done.map(a => {
                     const totalComps = a.session?.progress?.length || 0;
-                    const passedComps =
-                      a.session?.progress?.filter(p => p.passed).length || 0;
-                    const score =
-                      totalComps > 0 ? Math.round((passedComps / totalComps) * 100) : 0;
+                    const passedComps = a.session?.progress?.filter(p => p.passed).length || 0;
+                    const score = totalComps > 0 ? Math.round((passedComps / totalComps) * 100) : 0;
                     return (
-                      <div
-                        key={a.id}
-                        className="bg-white border border-green-100 rounded-xl p-4 flex items-center justify-between"
-                      >
+                      <div key={a.id} className="bg-white border border-green-100 rounded-xl p-4 flex items-center justify-between">
                         <div>
                           <p className="font-medium text-gray-800">{a.test.name}</p>
                           <p className="text-xs text-gray-500 mt-1">
-                            Score :{" "}
-                            <span className="font-semibold text-green-600">{score}%</span>{" "}
-                            {/* ITER9: "Domaines de compétence" */}
+                            Score : <span className="font-semibold text-green-600">{score}%</span>{" "}
                             — {passedComps}/{totalComps} {t("competences").toLowerCase()} validées
                           </p>
-                          {/* ITER9: Affichage du numéro de tentative si > 1 */}
                           {(a.session as any)?.attemptNumber > 1 && (
                             <span className="text-xs text-gray-400">{t("attempt")} {(a.session as any).attemptNumber}</span>
                           )}
                           {a.session?.completedAt && (
                             <p className="text-xs text-gray-400">
-                              Terminé le{" "}
-                              {new Date(a.session.completedAt).toLocaleDateString("fr-FR")}
+                              Terminé le {new Date(a.session.completedAt).toLocaleDateString("fr-FR")}
                             </p>
                           )}
                         </div>
                         <div className="flex flex-col gap-2 shrink-0">
                           <button
-                            onClick={() =>
-                              a.session &&
-                              setViewingResult({ assignment: a, session: a.session })
-                            }
+                            onClick={() => a.session && setViewingResult({ assignment: a, session: a.session })}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-xs font-semibold hover:bg-gray-50"
                           >
                             <Eye size={12} /> Résultats
                           </button>
-                          {/* ITER9: Bouton repasser si test terminé */}
-                          {a.status === "COMPLETED" && (
-                            <button
-                              onClick={() => handleStart(a)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              <RotateCcw size={14} />
-                              {t("retakeTest")}
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleStart(a)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <RotateCcw size={14} /> {t("retakeTest")}
+                          </button>
                         </div>
                       </div>
                     );
@@ -1044,6 +925,7 @@ export default function ParticipantTests() {
               </div>
             )}
           </div>
+
         </div>
       </PageShell>
     </div>

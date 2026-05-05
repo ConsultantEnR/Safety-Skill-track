@@ -117,6 +117,22 @@ router.get("/tests", authenticate, requireRole("EMPLOYEE"), async (req, res, nex
   } catch (err) { next(err); }
 });
 
+// POST activate test — bascule l'assignation en IN_PROGRESS sans créer de session
+router.post("/tests/:testId/activate", authenticate, requireRole("EMPLOYEE"), async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const testId = Number(req.params.testId);
+    const employee = await prisma.employee.findFirst({ where: { userId: user.id } });
+    if (!employee) return res.status(404).json({ error: "Employé non trouvé" });
+    const updated = await prisma.testAssignment.updateMany({
+      where: { testId, employeeId: employee.id, status: "PENDING" },
+      data: { status: "IN_PROGRESS" },
+    });
+    if (updated.count === 0) return res.status(400).json({ error: "Test non trouvé ou déjà activé" });
+    res.json({ message: "Test activé" });
+  } catch (err) { next(err); }
+});
+
 // POST start/resume test session
 router.post("/tests/:testId/start", authenticate, requireRole("EMPLOYEE"), async (req, res, next) => {
   try {
@@ -148,7 +164,7 @@ router.post("/tests/:testId/start", authenticate, requireRole("EMPLOYEE"), async
               .filter(c => c.subSubThemeId)
               .map(c => ({
                 subSubThemeId: c.subSubThemeId!,
-                currentLevel: (c.expectedLevel as string) || "FONDAMENTAL",
+                currentLevel: "FONDAMENTAL",
               })),
           },
         },
