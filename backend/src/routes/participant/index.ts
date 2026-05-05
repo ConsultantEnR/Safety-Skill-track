@@ -223,7 +223,7 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
     // Boucle sur les niveaux jusqu'à trouver des questions disponibles
     while (true) {
       const allLevelQuestions = await prisma.question.findMany({
-        where: { subSubThemeId, level: currentLevel as any },
+        where: { subSubThemeId, level: currentLevel as any, type: "QCM" }, // TODO: retirer le filtre type quand tous les types seront activés
       });
 
       // Séparer auto (QCM, TRUE_FALSE, RANKING) et open (OPEN, SCENARIO)
