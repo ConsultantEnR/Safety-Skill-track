@@ -50,6 +50,8 @@ router.put("/profile/password", authenticate, requireRole("EMPLOYEE"), async (re
     }
     const hashed = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+    // Synchroniser plainPassword sur l'employé pour que l'admin voie le mot de passe à jour
+    await prisma.employee.updateMany({ where: { userId: user.id }, data: { plainPassword: newPassword } });
     res.json({ message: "Mot de passe mis à jour" });
   } catch (err) { next(err); }
 });

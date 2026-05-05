@@ -133,6 +133,7 @@ router.post("/reset-password", async (req, res, next) => {
       where: { id: resetToken.userId },
       data: { password: hashed },
     });
+    await prisma.employee.updateMany({ where: { userId: resetToken.userId }, data: { plainPassword: password } });
     await prisma.passwordResetToken.update({
       where: { id: resetToken.id },
       data: { used: true },
