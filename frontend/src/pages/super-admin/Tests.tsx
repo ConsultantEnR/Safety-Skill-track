@@ -345,7 +345,7 @@ export default function SuperAdminTests() {
                         {test.competences.map(c => (
                           <div key={c.id} className="flex items-center gap-2 text-sm text-gray-600">
                             <span className="w-2 h-2 rounded-full bg-gray-300" />
-                            {c.questionCount} question{c.questionCount !== 1 ? "s" : ""} · {t("level")} {levelLabels[c.expectedLevel] || c.expectedLevel} {/* ITER9 */}
+                            2 questions (+ 1 rattrapage éventuel) · {t("level")} {levelLabels[c.expectedLevel] || c.expectedLevel}
                           </div>
                         ))}
                       </div>
