@@ -162,12 +162,13 @@ function TestRunner({
 
     if (q.type === "QCM") {
       const isMultiAnswer = (q.options?.correctIndexes?.length ?? 0) > 1;
+      const choices = getChoices(q.options!);
       if (isMultiAnswer) {
-        const choices = getChoices(q.options!);
         userAnswer = selectedAnswers.map(idx => choices[idx]);
         correct = null;
       } else {
-        userAnswer = selectedAnswer as number;
+        // Envoyer le texte de la réponse (pas l'index) — le backend compare les textes
+        userAnswer = choices[selectedAnswer as number];
         correct = selectedAnswer === q.options?.correctIndex;
       }
     } else if (q.type === "TRUE_FALSE") {

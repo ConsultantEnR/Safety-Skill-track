@@ -152,6 +152,10 @@ router.post("/tests/:testId/start", authenticate, requireRole("EMPLOYEE"), async
     if (!session) {
       const timeRemaining = test.timerEnabled && test.timerDuration ? test.timerDuration * 60 : null;
       const previousSessions = await prisma.testSession.count({ where: { testId, employeeId: employee.id } });
+      // Un seul enregistrement progress par subSubTheme unique (le modèle TestCompetence stocke N records par SST, un par niveau)
+      const uniqueCompetences = test.competences
+        .filter(c => c.subSubThemeId)
+        .filter((c, i, arr) => arr.findIndex(x => x.subSubThemeId === c.subSubThemeId) === i);
       session = await prisma.testSession.create({
         data: {
           testId,
@@ -160,12 +164,10 @@ router.post("/tests/:testId/start", authenticate, requireRole("EMPLOYEE"), async
           attemptNumber: previousSessions + 1,
           askedQuestionIds: [], // ITER11
           progress: {
-            create: test.competences
-              .filter(c => c.subSubThemeId)
-              .map(c => ({
-                subSubThemeId: c.subSubThemeId!,
-                currentLevel: "FONDAMENTAL",
-              })),
+            create: uniqueCompetences.map(c => ({
+              subSubThemeId: c.subSubThemeId!,
+              currentLevel: "FONDAMENTAL",
+            })),
           },
         },
         include: { progress: true },
@@ -320,10 +322,13 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
       // 1. Plus de questions auto disponibles (stock épuisé avant 2 posées)
       // 2. Les 2 questions auto et l'open ont été posées → le SST sera arrêté après l'answer
 
-      // Si moins de 3 questions auto disponibles au niveau → passer directement au niveau suivant
-      const competenceForMax = session.test.competences.find((c: any) => c.subSubThemeId === pendingProgress.subSubThemeId && c.expectedLevel === currentLevel)
-        || session.test.competences.find((c: any) => c.subSubThemeId === pendingProgress.subSubThemeId);
-      const maxLevelForSST = (competenceForMax?.expectedLevel as string) || "COMPLET";
+      // Niveau maximum = le plus élevé parmi toutes les TestCompetences pour ce SST dans ce test
+      const maxLevelForSST = session.test.competences
+        .filter((c: any) => c.subSubThemeId === pendingProgress.subSubThemeId)
+        .reduce((max: string, c: any) => {
+          const lvl = (c.expectedLevel as string) || "FONDAMENTAL";
+          return LEVEL_ORDER.indexOf(lvl) > LEVEL_ORDER.indexOf(max) ? lvl : max;
+        }, "FONDAMENTAL");
       if (autoQ.length === 0 && levelAutoAsked < 3) {
         const next = nextLevel(currentLevel);
         const nextExceedsMaxBank = next ? LEVEL_ORDER.indexOf(next) > LEVEL_ORDER.indexOf(maxLevelForSST) : false;
@@ -478,10 +483,13 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
         // 2 bonnes réponses auto → passer au niveau suivant (ou terminer si niveau max atteint)
         const next = nextLevel(progressItem.currentLevel as string);
         newLevelReached = progressItem.currentLevel as string;
-        // Priorité au compétence du niveau courant (modèle per-level), sinon premier match (ancien modèle)
-        const competence = session.test.competences.find((c: any) => c.subSubThemeId === subSubThemeId && c.expectedLevel === progressItem.currentLevel)
-          || session.test.competences.find((c: any) => c.subSubThemeId === subSubThemeId);
-        const maxLevel = (competence?.expectedLevel as string) || "COMPLET";
+        // Niveau maximum = le plus élevé parmi toutes les TestCompetences pour ce SST dans ce test
+        const maxLevel = session.test.competences
+          .filter((c: any) => c.subSubThemeId === subSubThemeId)
+          .reduce((max: string, c: any) => {
+            const lvl = (c.expectedLevel as string) || "FONDAMENTAL";
+            return LEVEL_ORDER.indexOf(lvl) > LEVEL_ORDER.indexOf(max) ? lvl : max;
+          }, "FONDAMENTAL");
         const nextExceedsMax = next ? LEVEL_ORDER.indexOf(next) > LEVEL_ORDER.indexOf(maxLevel) : false;
         if (!next || nextExceedsMax) {
           completed = true;
