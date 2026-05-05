@@ -4,8 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // transaction mode pooler (port 6543) — pour les requêtes
+  directUrl = env("DIRECT_URL")     // connexion directe (port 5432) — pour les migrations
 }
 
 model PlatformSettings {
