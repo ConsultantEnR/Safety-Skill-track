@@ -8,6 +8,7 @@
     "postinstall": "prisma generate",
     "seed": "ts-node prisma/seed.ts",
     "reset-test-data": "ts-node prisma/reset-test-data.ts",
+    "import-perenco": "ts-node prisma/import-perenco.ts",
     "migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:setup": "prisma db push && ts-node prisma/seed.ts",
