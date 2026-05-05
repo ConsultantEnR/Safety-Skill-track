@@ -311,7 +311,7 @@ export default function SuperAdminTests() {
                           )}
                         </div>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
-                          <span>{test.competences.length} {t("competence")}{test.competences.length !== 1 ? "s" : ""}</span> {/* ITER9 */}
+                          <span>{[...new Set(test.competences.map(c => c.subSubThemeId).filter(Boolean))].length} {t("competence")}{[...new Set(test.competences.map(c => c.subSubThemeId).filter(Boolean))].length !== 1 ? "s" : ""}</span>
                           {test.clientTests && test.clientTests.length > 0 && (
                             <span className="flex items-center gap-1">
                               <Building2 size={10} />
@@ -342,12 +342,21 @@ export default function SuperAdminTests() {
                         </p>
                       )}
                       <div className="space-y-1">
-                        {test.competences.map(c => (
-                          <div key={c.id} className="flex items-center gap-2 text-sm text-gray-600">
-                            <span className="w-2 h-2 rounded-full bg-gray-300" />
-                            2 questions (+ 1 rattrapage éventuel) · {t("level")} {levelLabels[c.expectedLevel] || c.expectedLevel}
-                          </div>
-                        ))}
+                        {test.competences
+                          .filter(c => c.subSubThemeId)
+                          .filter((c, i, arr) => arr.findIndex(x => x.subSubThemeId === c.subSubThemeId) === i)
+                          .map(c => {
+                            const LEVEL_ORDER = ["FONDAMENTAL","BASIQUE","INTERMEDIAIRE","AVANCE","COMPLET"];
+                            const maxLevel = test.competences
+                              .filter(x => x.subSubThemeId === c.subSubThemeId)
+                              .reduce((max, x) => LEVEL_ORDER.indexOf(x.expectedLevel) > LEVEL_ORDER.indexOf(max) ? x.expectedLevel : max, "FONDAMENTAL");
+                            return (
+                              <div key={c.subSubThemeId} className="flex items-center gap-2 text-sm text-gray-600">
+                                <span className="w-2 h-2 rounded-full bg-gray-300" />
+                                2 questions (+ 1 rattrapage éventuel) par niveau · jusqu'au niveau {levelLabels[maxLevel] || maxLevel}
+                              </div>
+                            );
+                          })}
                       </div>
                     </div>
                   )}

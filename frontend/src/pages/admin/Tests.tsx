@@ -145,23 +145,28 @@ export default function AdminTests() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {tests.map(test => (
                 <div key={test.id} className="bg-white rounded-xl shadow-sm p-6 flex flex-col gap-3 border border-gray-100 hover:border-gray-200 transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-gray-800 text-base leading-tight">{test.name}</h3>
-                    {/* ITER9: "Domaine de compétence" au lieu de "Compétence" */}
-                    <span className="shrink-0 px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-                      {test.competences.length} {test.competences.length > 1 ? t("competences") : t("competence")}
-                    </span>
-                  </div>
-                  {test.description && <p className="text-sm text-gray-500 leading-relaxed">{test.description}</p>}
-                  {test.competences.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {test.competences.slice(0, 4).map(c => (
-                        // ITER9: "Domaine de compétence"
-                        <span key={c.id} className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{t("competencyDomain")} #{c.subSubThemeId}</span>
-                      ))}
-                      {test.competences.length > 4 && <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">+{test.competences.length - 4}</span>}
-                    </div>
-                  )}
+                  {(() => {
+                    const uniqueComps = test.competences
+                      .filter(c => c.subSubThemeId)
+                      .filter((c, i, arr) => arr.findIndex(x => x.subSubThemeId === c.subSubThemeId) === i);
+                    return (<>
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-gray-800 text-base leading-tight">{test.name}</h3>
+                        <span className="shrink-0 px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                          {uniqueComps.length} {uniqueComps.length > 1 ? t("competences") : t("competence")}
+                        </span>
+                      </div>
+                      {test.description && <p className="text-sm text-gray-500 leading-relaxed">{test.description}</p>}
+                      {uniqueComps.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {uniqueComps.slice(0, 4).map(c => (
+                            <span key={c.subSubThemeId} className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{t("competencyDomain")} #{c.subSubThemeId}</span>
+                          ))}
+                          {uniqueComps.length > 4 && <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">+{uniqueComps.length - 4}</span>}
+                        </div>
+                      )}
+                    </>);
+                  })()}
                   <div className="mt-auto pt-2">
                     <button onClick={() => openAssignModal(test)} className="w-full py-2 rounded-lg text-white text-sm font-semibold transition-opacity hover:opacity-90" style={{ backgroundColor: branding.primaryColor }}>
                       {t("assignToEmployees")}
