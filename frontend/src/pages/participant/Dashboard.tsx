@@ -123,7 +123,11 @@ export default function ParticipantDashboard() {
       fetch("/api/participant/tests", { headers: authHeaders }).then(r => r.json()),
     ]).then(([prof, tests]) => {
       setProfile(prof);
-      setAssignments(Array.isArray(tests) ? tests : []);
+      const mapped = (Array.isArray(tests) ? tests : []).map((a: any) => ({
+        ...a,
+        session: a.test?.sessions?.[0] || a.session || null,
+      }));
+      setAssignments(mapped);
     }).catch(() => toast.error("Erreur de chargement"))
       .finally(() => setLoading(false));
   }, [accessToken]);

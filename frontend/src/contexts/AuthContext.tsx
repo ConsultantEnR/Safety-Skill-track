@@ -71,6 +71,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
+  // Rafraîchissement automatique toutes les 12 min (access token expire à 15 min)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const stored = getStoredAuth();
+      if (!stored) return;
+      try {
+        const res = await fetch("/api/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: stored.refreshToken }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setAccessToken(data.accessToken);
+        saveAuth({ user: stored.user, accessToken: data.accessToken, refreshToken: data.refreshToken });
+      } catch {}
+    }, 12 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Rafraîchit manuellement la session (appelable depuis d'autres composants)
   async function refreshSession(): Promise<boolean> {
     const stored = getStoredAuth();

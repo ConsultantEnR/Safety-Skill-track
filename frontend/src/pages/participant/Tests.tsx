@@ -588,18 +588,24 @@ export default function ParticipantTests() {
   );
   const done = assignments.filter(a => a.status === "COMPLETED");
 
-  // "Passer le test" — active le test sans démarrer la session
+  // "Passer le test" — active ET démarre directement la session
   async function handleActivate(a: TestAssignment) {
     try {
-      const res = await fetch(`/api/participant/tests/${a.testId}/activate`, {
+      await fetch(`/api/participant/tests/${a.testId}/activate`, {
         method: "POST",
         headers: authHeaders,
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Erreur");
+      // Démarrer immédiatement la session sans étape intermédiaire
+      const startRes = await fetch(`/api/participant/tests/${a.testId}/start`, {
+        method: "POST",
+        headers: authHeaders,
+      });
+      if (!startRes.ok) throw new Error((await startRes.json()).error || "Erreur");
+      const sessionData = await startRes.json();
       setConfirmingTest(null);
-      await loadData();
+      setActiveTest({ assignment: { ...a, status: "IN_PROGRESS" }, session: sessionData });
     } catch (err: any) {
-      toast.error(err.message || "Impossible d'activer le test");
+      toast.error(err.message || "Impossible de démarrer le test");
     }
   }
 
