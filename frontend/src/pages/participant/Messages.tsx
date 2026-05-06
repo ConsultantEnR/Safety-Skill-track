@@ -13,10 +13,11 @@ interface Message {
   body: string;
   isHandled: boolean;
   createdAt: string;
-  // direction: "sent" (participant → admin) ou "received" (admin → participant, si applicable)
   senderName?: string | null;
   testName?: string | null;
   subSubThemeName?: string | null;
+  replyText?: string | null;
+  repliedAt?: string | null;
 }
 
 interface Profile {
@@ -199,7 +200,7 @@ export default function ParticipantMessages() {
 
                 {/* Corps du message */}
                 {expanded === msg.id && (
-                  <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+                  <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
                     {msg.subSubThemeName && (
                       <p className="text-xs text-gray-500 mb-2">
                         <span className="font-medium">Compétence :</span> {msg.subSubThemeName}
@@ -208,6 +209,22 @@ export default function ParticipantMessages() {
                     <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">
                       {msg.body}
                     </div>
+                    {msg.replyText && (
+                      <div className="bg-indigo-50 rounded-lg p-3 text-sm text-indigo-800 whitespace-pre-wrap border-l-4 border-indigo-300">
+                        <div className="text-xs text-indigo-500 font-medium mb-1 flex items-center gap-1">
+                          ↩ Réponse de votre administrateur
+                          {msg.repliedAt && (
+                            <span className="font-normal text-indigo-400 ml-1">
+                              — {new Date(msg.repliedAt).toLocaleDateString("fr-FR", {
+                                day: "2-digit", month: "short", year: "numeric",
+                                hour: "2-digit", minute: "2-digit",
+                              })}
+                            </span>
+                          )}
+                        </div>
+                        {msg.replyText}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -95,7 +95,6 @@ function TestRunner({
   accentColor: string;
   accessToken: string;
 }) {
-  const { t } = useI18n();
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | number | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
@@ -106,6 +105,9 @@ function TestRunner({
   const [questionCount, setQuestionCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number | null>(session.timeRemaining ?? null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [completedProgressIds, setCompletedProgressIds] = useState<Set<number>>(
+    new Set((session.progress || []).filter(p => p.completed).map(p => p.id))
+  );
 
   const authHeaders = {
     Authorization: `Bearer ${accessToken}`,
@@ -202,6 +204,16 @@ function TestRunner({
       toast.error("Erreur lors de l'enregistrement de la réponse");
     }
 
+    // Override feedback with backend ground truth (handles correctIndex-undefined edge cases)
+    if (answerData.isCorrect !== undefined && correct !== null) {
+      setFeedback(answerData.isCorrect ? "correct" : "incorrect");
+    }
+
+    // Update progress bar when a sub-theme is completed
+    if (answerData.progressItem?.completed && answerData.progressItem?.id) {
+      setCompletedProgressIds((prev: Set<number>) => new Set([...prev, answerData.progressItem.id]));
+    }
+
     if (answerData.allDone) {
       const delay = correct !== null ? 1500 : 0;
       setTimeout(() => onComplete(), delay);
@@ -213,7 +225,7 @@ function TestRunner({
   }
 
   const totalComps = (session.progress || []).length;
-  const doneComps = (session.progress || []).filter(p => p.completed).length;
+  const doneComps = completedProgressIds.size;
   const progressPct = totalComps > 0 ? Math.round((doneComps / totalComps) * 100) : 0;
 
   if (loadingQ) {
@@ -316,18 +328,27 @@ function TestRunner({
 
       {q.type === "QCM" && q.options && (
         <div className="space-y-2">
-          {isMultiAnswerQCM && (
-            <p className="text-xs text-indigo-600 font-medium mb-1">✦ {t("selectMultiple")}</p>
-          )}
+          <p className="text-xs text-indigo-600 font-medium mb-1">
+            {isMultiAnswerQCM
+              ? `✦ Sélectionnez ${q.options?.correctIndexes?.length ?? 2} réponses`
+              : "✦ Sélectionnez 1 réponse"}
+          </p>
           {getChoices(q.options).map((choice, idx) => {
             if (isMultiAnswerQCM) {
               const isChecked = selectedAnswers.includes(idx);
+              const isCorrectChoice = answered && (q.options?.correctIndexes ?? []).includes(idx);
+              const isWrongChoice = answered && isChecked && !(q.options?.correctIndexes ?? []).includes(idx);
               return (
                 <label key={idx}
                   className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl border-2 transition-all ${
                     answered ? "cursor-default" : "cursor-pointer"
-                  } ${isChecked ? "text-white" : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"}`}
-                  style={isChecked ? { borderColor: primaryColor, backgroundColor: primaryColor } : {}}>
+                  } ${
+                    isCorrectChoice ? "border-green-400 bg-green-50 text-green-800"
+                      : isWrongChoice ? "border-red-400 bg-red-50 text-red-800"
+                      : isChecked ? "text-white"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                  }`}
+                  style={isChecked && !answered ? { borderColor: primaryColor, backgroundColor: primaryColor } : {}}>
                   <input type="checkbox" checked={isChecked} disabled={answered}
                     onChange={() => {
                       if (answered) return;

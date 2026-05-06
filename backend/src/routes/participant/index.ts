@@ -534,12 +534,13 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
 
     if (allDone) {
       await completeSession(session.id, employee);
-      return res.json({ completed: true, allDone: true });
+      return res.json({ completed: true, allDone: true, isCorrect });
     }
 
     res.json({
       completed: false,
       allDone: false,
+      isCorrect,
       progressItem: {
         ...progressItem,
         questionsAsked: newQuestionsAsked,
@@ -616,6 +617,18 @@ router.get("/results", authenticate, requireRole("EMPLOYEE"), async (req, res, n
       orderBy: { completedAt: "desc" },
     });
     res.json(sessions);
+  } catch (err) { next(err); }
+});
+
+// GET messages sent by this participant (with admin replies)
+router.get("/messages", authenticate, requireRole("EMPLOYEE"), async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const messages = await prisma.message.findMany({
+      where: { senderUserId: user.id },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(messages);
   } catch (err) { next(err); }
 });
 
