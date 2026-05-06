@@ -120,7 +120,7 @@ export default function Sidebar() {
         backgroundImage: `linear-gradient(rgba(39,41,90,0.72), rgba(39,41,90,0.72)), url(${SIDEBAR_BG_IMAGE})`,
         backgroundSize: "cover",
         backgroundPosition: "30% center",
-        backgroundColor: primaryColor,
+        backgroundColor: "#27295a",
       }}
     >
       {/* Logo / Titre */}

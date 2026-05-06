@@ -16,13 +16,6 @@ const participantNav: NavItem[] = [
 
 const SIDEBAR_BG_IMAGE = "https://www.aegide-international.com/wp-content/uploads/2023/02/photo-egalite-hf-sur-chantier-scaled-1-1.jpeg";
 
-function hexToRgba(hex: string, alpha: number): string {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.slice(0, 2), 16) || 39;
-  const g = parseInt(clean.slice(2, 4), 16) || 41;
-  const b = parseInt(clean.slice(4, 6), 16) || 90;
-  return `rgba(${r},${g},${b},${alpha})`;
-}
 
 function NavTooltip({ label, children }: { label: string; children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
@@ -65,7 +58,6 @@ export default function ParticipantSidebar({
     navigate("/login");
   }
 
-  const overlay = hexToRgba(primaryColor, 0.78);
   const initials = `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase() || "?";
   const fullName = [firstName, lastName].filter(Boolean).join(" ");
 
@@ -74,10 +66,10 @@ export default function ParticipantSidebar({
       className="flex flex-col h-screen transition-all duration-300 shrink-0"
       style={{
         width: collapsed ? 64 : 240,
-        backgroundImage: `linear-gradient(${overlay}, ${overlay}), url(${SIDEBAR_BG_IMAGE})`,
+        backgroundImage: `linear-gradient(rgba(39,41,90,0.72), rgba(39,41,90,0.72)), url(${SIDEBAR_BG_IMAGE})`,
         backgroundSize: "cover",
         backgroundPosition: "30% center",
-        backgroundColor: primaryColor,
+        backgroundColor: "#27295a",
       }}
     >
       {/* Logo / Nom entreprise */}
