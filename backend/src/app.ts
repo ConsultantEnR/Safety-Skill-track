@@ -19,6 +19,7 @@ import adminEmployeesRouter from "./routes/admin/employees";
 import adminSettingsRouter from "./routes/admin/settings";
 import adminMessagesRouter from "./routes/admin/messages";
 import adminNotificationsRouter from "./routes/admin/notifications";
+import adminRetakeRequestsRouter from "./routes/admin/retakeRequests";
 import participantRouter from "./routes/participant/index";
 
 dotenv.config();
@@ -57,6 +58,7 @@ app.use("/api/admin/employees", adminEmployeesRouter);
 app.use("/api/admin/settings", adminSettingsRouter);
 app.use("/api/admin/messages", adminMessagesRouter);
 app.use("/api/admin/notifications", adminNotificationsRouter);
+app.use("/api/admin/retake-requests", adminRetakeRequestsRouter);
 app.use("/api/participant", participantRouter);
 
 app.use(errorHandler);

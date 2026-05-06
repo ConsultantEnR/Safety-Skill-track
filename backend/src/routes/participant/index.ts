@@ -102,8 +102,21 @@ router.get("/tests", authenticate, requireRole("EMPLOYEE"), async (req, res, nex
     const sstMap: Record<number, string> = {};
     for (const sst of subSubThemes) sstMap[sst.id] = sst.label;
 
+    // Include pending retake request for COMPLETED assignments
+    const completedTestIds = assignments.filter(a => a.status === "COMPLETED").map(a => a.testId);
+    const pendingRequests = completedTestIds.length > 0
+      ? await prisma.retakeRequest.findMany({
+          where: { employeeId: employee.id, testId: { in: completedTestIds }, status: "PENDING" },
+        })
+      : [];
+    const pendingByTestId: Record<number, number> = {};
+    for (const r of pendingRequests) pendingByTestId[r.testId] = r.id;
+
     const enriched = assignments.map(a => ({
       ...a,
+      retakeRequest: a.status === "COMPLETED" && pendingByTestId[a.testId]
+        ? { id: pendingByTestId[a.testId], status: "PENDING" }
+        : null,
       test: {
         ...a.test,
         sessions: a.test.sessions.map(s => ({
@@ -617,6 +630,47 @@ router.get("/results", authenticate, requireRole("EMPLOYEE"), async (req, res, n
       orderBy: { completedAt: "desc" },
     });
     res.json(sessions);
+  } catch (err) { next(err); }
+});
+
+// POST request retake authorization from client admin
+router.post("/tests/:testId/retake-request", authenticate, requireRole("EMPLOYEE"), async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const testId = Number(req.params.testId);
+    const employee = await prisma.employee.findFirst({
+      where: { userId: user.id },
+      include: { client: { select: { id: true } } },
+    });
+    if (!employee) return res.status(404).json({ error: "Employé non trouvé" });
+
+    const existing = await prisma.retakeRequest.findFirst({
+      where: { employeeId: employee.id, testId, status: "PENDING" },
+    });
+    if (existing) return res.status(400).json({ error: "Une demande est déjà en attente" });
+
+    const request = await prisma.retakeRequest.create({
+      data: { employeeId: employee.id, testId },
+    });
+
+    // Notify client admin(s)
+    const test = await prisma.test.findUnique({ where: { id: testId } });
+    const admins = await prisma.user.findMany({
+      where: { role: "CLIENT_ADMIN", clientId: employee.clientId },
+    });
+    for (const admin of admins) {
+      await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          title: "Demande de reprise de test",
+          message: `${employee.firstName} ${employee.lastName} souhaite repasser le test "${test?.name ?? ""}".`,
+          type: "RETAKE_REQUEST",
+          isRead: false,
+        },
+      });
+    }
+
+    res.status(201).json(request);
   } catch (err) { next(err); }
 });
 

@@ -10,7 +10,7 @@ import {
   Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { Users, Star, Download, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, Star, Download, ChevronDown, ChevronUp, RotateCcw, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface ScoreEntry { theme: string; themeEn?: string | null; score: number; }
@@ -89,6 +89,41 @@ export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Retake requests
+  interface RetakeRequestItem {
+    id: number;
+    requestedAt: string;
+    employee: { id: number; firstName: string; lastName: string };
+    test: { id: number; name: string };
+  }
+  const [retakeRequests, setRetakeRequests] = useState<RetakeRequestItem[]>([]);
+  const [processingRetake, setProcessingRetake] = useState<number | null>(null);
+
+  async function loadRetakeRequests() {
+    if (!accessToken) return;
+    try {
+      const res = await fetch("/api/admin/retake-requests", { headers: authHeaders });
+      if (res.ok) setRetakeRequests(await res.json());
+    } catch {}
+  }
+
+  async function handleRetakeDecision(id: number, action: "approve" | "deny") {
+    setProcessingRetake(id);
+    try {
+      const res = await fetch(`/api/admin/retake-requests/${id}/${action}`, {
+        method: "POST",
+        headers: authHeaders,
+      });
+      if (!res.ok) throw new Error();
+      toast.success(action === "approve" ? "Reprise autorisée" : "Demande refusée");
+      setRetakeRequests((prev: RetakeRequestItem[]) => prev.filter((r: RetakeRequestItem) => r.id !== id));
+    } catch {
+      toast.error("Erreur lors du traitement");
+    } finally {
+      setProcessingRetake(null);
+    }
+  }
+
   // Filters
   const [filterCountry, setFilterCountry]   = useState("");
   const [filterSite, setFilterSite]         = useState("");
@@ -122,7 +157,7 @@ export default function AdminDashboard() {
     }
   }
 
-  useEffect(() => { loadDashboard(); }, [accessToken]);
+  useEffect(() => { loadDashboard(); loadRetakeRequests(); }, [accessToken]);
 
   function applyFilters() {
     loadDashboard({ country: filterCountry, site: filterSite, position: filterPosition, employeeId: filterEmployee });
@@ -216,6 +251,49 @@ export default function AdminDashboard() {
             )}
           </div>
         </div>
+
+        {/* Retake requests */}
+        {retakeRequests.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <RotateCcw size={16} className="text-amber-600" />
+              <h2 className="text-sm font-semibold text-amber-800">
+                Demandes de reprise de test ({retakeRequests.length})
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {retakeRequests.map((r: RetakeRequestItem) => (
+                <div key={r.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2.5 border border-amber-100">
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">
+                      {r.employee.firstName} {r.employee.lastName}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-2">— {r.test.name}</span>
+                    <p className="text-xs text-gray-400">
+                      {new Date(r.requestedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button type="button"
+                      onClick={() => handleRetakeDecision(r.id, "approve")}
+                      disabled={processingRetake === r.id}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-100 text-green-700 text-xs font-medium hover:bg-green-200 disabled:opacity-50 transition-colors"
+                    >
+                      <Check size={12} /> Autoriser
+                    </button>
+                    <button type="button"
+                      onClick={() => handleRetakeDecision(r.id, "deny")}
+                      disabled={processingRetake === r.id}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
+                    >
+                      <X size={12} /> Refuser
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Main filters */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-4">

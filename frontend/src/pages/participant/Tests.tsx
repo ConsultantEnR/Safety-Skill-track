@@ -46,6 +46,7 @@ interface TestAssignment {
     sessions?: Session[];
   };
   session: Session | null;
+  retakeRequest: { id: number; status: string } | null;
 }
 
 interface Profile {
@@ -355,7 +356,6 @@ function TestRunner({
                       setSelectedAnswers(prev => prev.includes(idx) ? prev.filter(x => x !== idx) : [...prev, idx]);
                     }}
                     className="rounded" />
-                  <span className="mr-1 font-semibold text-xs opacity-60">{String.fromCharCode(65 + idx)}.</span>
                   {choice}
                 </label>
               );
@@ -372,7 +372,6 @@ function TestRunner({
                     : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                 }`}
                 style={isSelected && !feedback ? { borderColor: primaryColor, backgroundColor: primaryColor } : {}}>
-                <span className="mr-2 font-semibold text-xs opacity-60">{String.fromCharCode(65 + idx)}.</span>
                 {choice}
               </button>
             );
@@ -627,6 +626,24 @@ export default function ParticipantTests() {
       setActiveTest({ assignment: { ...a, status: "IN_PROGRESS" }, session: sessionData });
     } catch (err: any) {
       toast.error(err.message || "Impossible de démarrer le test");
+    }
+  }
+
+  // "Demander à repasser" — envoie une demande d'autorisation au client admin
+  async function handleRetakeRequest(a: TestAssignment) {
+    try {
+      const res = await fetch(`/api/participant/tests/${a.testId}/retake-request`, {
+        method: "POST",
+        headers: authHeaders,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Erreur");
+      }
+      toast.success("Demande envoyée à votre administrateur");
+      await loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Impossible d'envoyer la demande");
     }
   }
 
@@ -939,12 +956,18 @@ export default function ParticipantTests() {
                           >
                             <Eye size={12} /> Résultats
                           </button>
-                          <button
-                            onClick={() => handleStart(a)}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-                          >
-                            <RotateCcw size={14} /> {t("retakeTest")}
-                          </button>
+                          {a.retakeRequest?.status === "PENDING" ? (
+                            <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                              <Clock size={12} /> Demande en attente
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleRetakeRequest(a)}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              <RotateCcw size={14} /> Demander à repasser
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

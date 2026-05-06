@@ -178,26 +178,27 @@ model Question {
 }
 
 model Employee {
-  id            Int              @id @default(autoincrement())
-  lastName      String
-  firstName     String
-  birthDate     DateTime?
-  position      String?
-  department    String?
-  site          String?
-  country       String?
-  language      String?
-  email         String           @unique
-  isActive      Boolean          @default(true)
-  clientId      Int
-  client        Client           @relation(fields: [clientId], references: [id])
-  userId        Int?             @unique
-  user          User?            @relation(fields: [userId], references: [id])
-  plainPassword String?
-  assignments   TestAssignment[]
-  sessions      TestSession[]
-  openResponses OpenResponse[]   // ITER8: réponses ouvertes
-  createdAt     DateTime         @default(now())
+  id              Int               @id @default(autoincrement())
+  lastName        String
+  firstName       String
+  birthDate       DateTime?
+  position        String?
+  department      String?
+  site            String?
+  country         String?
+  language        String?
+  email           String            @unique
+  isActive        Boolean           @default(true)
+  clientId        Int
+  client          Client            @relation(fields: [clientId], references: [id])
+  userId          Int?              @unique
+  user            User?             @relation(fields: [userId], references: [id])
+  plainPassword   String?
+  assignments     TestAssignment[]
+  sessions        TestSession[]
+  openResponses   OpenResponse[]
+  retakeRequests  RetakeRequest[]
+  createdAt       DateTime          @default(now())
 }
 
 model TestSelection {
@@ -211,16 +212,17 @@ model TestSelection {
 }
 
 model Test {
-  id            Int              @id @default(autoincrement())
-  name          String
-  description   String?
-  timerEnabled  Boolean          @default(false)
-  timerDuration Int?
-  competences   TestCompetence[]
-  assignments   TestAssignment[]
-  clientTests   ClientTest[]
-  sessions      TestSession[]
-  createdAt     DateTime         @default(now())
+  id              Int               @id @default(autoincrement())
+  name            String
+  description     String?
+  timerEnabled    Boolean           @default(false)
+  timerDuration   Int?
+  competences     TestCompetence[]
+  assignments     TestAssignment[]
+  clientTests     ClientTest[]
+  sessions        TestSession[]
+  retakeRequests  RetakeRequest[]
+  createdAt       DateTime          @default(now())
 }
 
 model TestCompetence {
@@ -297,6 +299,23 @@ model TestSessionProgress {
   levelReached        Level?                   // ITER10: niveau maximum atteint pour ce SST
   pointsEarned        Int         @default(0)  // ITER10: points gagnés (barème par niveau)
   maxPoints           Int         @default(0)  // ITER10: points max possibles
+}
+
+model RetakeRequest {
+  id          Int                 @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  testId      Int
+  test        Test                @relation(fields: [testId], references: [id], onDelete: Cascade)
+  status      RetakeRequestStatus @default(PENDING)
+  requestedAt DateTime            @default(now())
+  reviewedAt  DateTime?
+}
+
+enum RetakeRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
 }
 
 enum SessionStatus {
