@@ -666,7 +666,7 @@ export default function ParticipantTests() {
   if (activeTest) {
     return (
       <div className="flex h-screen overflow-hidden bg-gray-50">
-        <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} />
+        <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} firstName={profile?.firstName} lastName={profile?.lastName} />
         <PageShell>
           <div className="mb-6">
             <button onClick={() => setActiveTest(null)} className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1">

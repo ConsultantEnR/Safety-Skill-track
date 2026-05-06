@@ -126,6 +126,8 @@ export default function ParticipantMessages() {
         accentColor={accentColor}
         logoUrl={logoUrl}
         companyName={companyName}
+        firstName={profile?.firstName}
+        lastName={profile?.lastName}
       />
 
       <PageShell>

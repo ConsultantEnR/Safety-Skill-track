@@ -117,7 +117,7 @@ export default function ParticipantProfile() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} />
+      <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} firstName={profile?.firstName} lastName={profile?.lastName} />
       <PageShell>
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">{t("myInfo")}</h1> {/* ITER9 */}

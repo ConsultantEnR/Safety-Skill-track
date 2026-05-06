@@ -199,7 +199,7 @@ export default function ParticipantDashboard() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} />
+      <ParticipantSidebar primaryColor={primaryColor} accentColor={accentColor} logoUrl={logoUrl} companyName={companyName} firstName={profile?.firstName} lastName={profile?.lastName} />
       <PageShell>
         {/* Salutation */}
         <div className="mb-8">

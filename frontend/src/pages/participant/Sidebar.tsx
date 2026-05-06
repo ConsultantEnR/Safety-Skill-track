@@ -3,11 +3,10 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { LayoutDashboard, ClipboardList, UserCircle, ChevronLeft, ChevronRight, LogOut, MessageSquare } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
-import LanguageSwitcher from "../../components/LanguageSwitcher"; // ITER7: changement de langue
+import LanguageSwitcher from "../../components/LanguageSwitcher";
 
 interface NavItem { to: string; icon: React.ReactNode; label: string; }
 
-// ITER7: Ajout du lien "Mes messages"
 const participantNav: NavItem[] = [
   { to: "/participant/dashboard", icon: <LayoutDashboard size={20} />, label: "Tableau de bord" },
   { to: "/participant/tests",     icon: <ClipboardList size={20} />,   label: "Mes tests" },
@@ -15,7 +14,16 @@ const participantNav: NavItem[] = [
   { to: "/participant/profile",   icon: <UserCircle size={20} />,      label: "Mes informations" },
 ];
 
-// Tooltip pour mode réduit
+const SIDEBAR_BG_IMAGE = "https://www.aegide-international.com/wp-content/uploads/2023/02/photo-egalite-hf-sur-chantier-scaled-1-1.jpeg";
+
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16) || 39;
+  const g = parseInt(clean.slice(2, 4), 16) || 41;
+  const b = parseInt(clean.slice(4, 6), 16) || 90;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function NavTooltip({ label, children }: { label: string; children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
   return (
@@ -36,12 +44,15 @@ interface ParticipantSidebarProps {
   accentColor: string;
   logoUrl?: string | null;
   companyName?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
-export default function ParticipantSidebar({ primaryColor, accentColor, logoUrl, companyName }: ParticipantSidebarProps) {
+export default function ParticipantSidebar({
+  primaryColor, accentColor, logoUrl, companyName, firstName, lastName,
+}: ParticipantSidebarProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  // Préférence mémorisée dans localStorage (clé distincte pour le participant)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("participant_sidebar_collapsed") === "true");
 
   useEffect(() => {
@@ -54,18 +65,34 @@ export default function ParticipantSidebar({ primaryColor, accentColor, logoUrl,
     navigate("/login");
   }
 
+  const overlay = hexToRgba(primaryColor, 0.78);
+  const initials = `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase() || "?";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ");
+
   return (
     <aside
       className="flex flex-col h-screen transition-all duration-300 shrink-0"
-      style={{ width: collapsed ? 64 : 240, backgroundColor: primaryColor }}
+      style={{
+        width: collapsed ? 64 : 240,
+        backgroundImage: `linear-gradient(${overlay}, ${overlay}), url(${SIDEBAR_BG_IMAGE})`,
+        backgroundSize: "cover",
+        backgroundPosition: "30% center",
+        backgroundColor: primaryColor,
+      }}
     >
       {/* Logo / Nom entreprise */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
+      <div className={`flex items-center border-b border-white/10 ${collapsed ? "justify-center px-2 py-4" : "gap-3 px-4 py-5"}`}>
         {logoUrl ? (
-          <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain rounded shrink-0" />
+          <img
+            src={logoUrl}
+            alt="Logo"
+            className={`object-contain rounded shrink-0 ${collapsed ? "w-9 h-9" : "w-12 h-12"}`}
+          />
         ) : (
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{ backgroundColor: accentColor, color: primaryColor }}>
+          <div
+            className={`rounded-full flex items-center justify-center font-bold shrink-0 ${collapsed ? "w-9 h-9 text-sm" : "w-12 h-12 text-base"}`}
+            style={{ backgroundColor: accentColor, color: primaryColor }}
+          >
             {companyName?.[0]?.toUpperCase() || "P"}
           </div>
         )}
@@ -104,6 +131,35 @@ export default function ParticipantSidebar({ primaryColor, accentColor, logoUrl,
         ))}
       </nav>
 
+      {/* Utilisateur connecté */}
+      <div className="border-t border-white/10 px-2 py-3">
+        {collapsed ? (
+          <NavTooltip label={fullName || "Profil"}>
+            <div className="flex justify-center">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={{ backgroundColor: accentColor, color: primaryColor }}
+              >
+                {initials}
+              </div>
+            </div>
+          </NavTooltip>
+        ) : (
+          <div className="flex items-center gap-3 px-2">
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+              style={{ backgroundColor: accentColor, color: primaryColor }}
+            >
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-semibold truncate leading-tight">{fullName || "—"}</p>
+              <p className="text-white/50 text-xs truncate">Participant</p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Bas : déconnexion + toggle */}
       <div className="border-t border-white/10 p-2 space-y-1">
         {collapsed ? (
@@ -125,7 +181,6 @@ export default function ParticipantSidebar({ primaryColor, accentColor, logoUrl,
           className="flex items-center justify-center w-full py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors">
           {collapsed ? <ChevronRight size={20} /> : <><ChevronLeft size={20} /><span className="ml-2 text-xs text-white/60">Réduire</span></>}
         </button>
-        {/* ITER7: sélecteur de langue en bas de sidebar participant */}
         {!collapsed && (
           <div className="flex justify-center pt-1">
             <LanguageSwitcher className="text-white/70" />
