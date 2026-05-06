@@ -4,15 +4,10 @@ import { LayoutDashboard, ClipboardList, UserCircle, ChevronLeft, ChevronRight, 
 import { useAuth } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
 import LanguageSwitcher from "../../components/LanguageSwitcher";
+import { useI18n } from "../../contexts/I18nContext";
 
 interface NavItem { to: string; icon: React.ReactNode; label: string; }
 
-const participantNav: NavItem[] = [
-  { to: "/participant/dashboard", icon: <LayoutDashboard size={20} />, label: "Tableau de bord" },
-  { to: "/participant/tests",     icon: <ClipboardList size={20} />,   label: "Mes tests" },
-  { to: "/participant/messages",  icon: <MessageSquare size={20} />,   label: "Mes messages" },
-  { to: "/participant/profile",   icon: <UserCircle size={20} />,      label: "Mes informations" },
-];
 
 const SIDEBAR_BG_IMAGE = "https://www.aegide-international.com/wp-content/uploads/2023/02/photo-egalite-hf-sur-chantier-scaled-1-1.jpeg";
 
@@ -45,7 +40,14 @@ export default function ParticipantSidebar({
   primaryColor, accentColor, logoUrl, companyName, firstName, lastName,
 }: ParticipantSidebarProps) {
   const { logout, user } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
+  const participantNav: NavItem[] = [
+    { to: "/participant/dashboard", icon: <LayoutDashboard size={20} />, label: t("dashboard") },
+    { to: "/participant/tests",     icon: <ClipboardList size={20} />,   label: t("myTests") },
+    { to: "/participant/messages",  icon: <MessageSquare size={20} />,   label: t("messages") },
+    { to: "/participant/profile",   icon: <UserCircle size={20} />,      label: t("myInfo") },
+  ];
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("participant_sidebar_collapsed") === "true");
 
   useEffect(() => {
@@ -154,7 +156,7 @@ export default function ParticipantSidebar({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-semibold truncate leading-tight">{fullName || "—"}</p>
-              <p className="text-white/50 text-xs truncate">Participant</p>
+              <p className="text-white/50 text-xs truncate">{t("participantRole")}</p>
             </div>
           </div>
         )}
@@ -163,23 +165,23 @@ export default function ParticipantSidebar({
       {/* Bas : déconnexion + toggle */}
       <div className="border-t border-white/10 p-2 space-y-1">
         {collapsed ? (
-          <NavTooltip label="Déconnexion">
-            <button onClick={handleLogout} aria-label="Déconnexion"
+          <NavTooltip label={t("logout")}>
+            <button onClick={handleLogout} aria-label={t("logout")}
               className="flex items-center justify-center w-full py-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
               <LogOut size={20} />
             </button>
           </NavTooltip>
         ) : (
-          <button onClick={handleLogout} aria-label="Déconnexion"
+          <button onClick={handleLogout} aria-label={t("logout")}
             className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
             <LogOut size={20} />
-            <span className="text-sm">Déconnexion</span>
+            <span className="text-sm">{t("logout")}</span>
           </button>
         )}
         <button onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? "Étendre la sidebar" : "Réduire la sidebar"}
           className="flex items-center justify-center w-full py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors">
-          {collapsed ? <ChevronRight size={20} /> : <><ChevronLeft size={20} /><span className="ml-2 text-xs text-white/60">Réduire</span></>}
+          {collapsed ? <ChevronRight size={20} /> : <><ChevronLeft size={20} /><span className="ml-2 text-xs text-white/60">{t("collapse")}</span></>}
         </button>
         {!collapsed && (
           <div className="flex justify-center pt-1">

@@ -96,6 +96,7 @@ function TestRunner({
   accentColor: string;
   accessToken: string;
 }) {
+  const { t } = useI18n();
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | number | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
@@ -234,7 +235,7 @@ function TestRunner({
       <div className="flex flex-col items-center justify-center py-16 space-y-3">
         <div className="w-8 h-8 border-2 border-gray-200 rounded-full animate-spin"
           style={{ borderTopColor: primaryColor }} />
-        <p className="text-sm text-gray-400">Chargement de la question…</p>
+        <p className="text-sm text-gray-400">{t("loadingQuestion")}</p>
       </div>
     );
   }
@@ -243,13 +244,13 @@ function TestRunner({
     return (
       <div className="text-center py-8">
         <CheckCircle size={48} className="mx-auto mb-4 text-green-400" />
-        <p className="text-lg font-semibold text-gray-800 mb-2">Test terminé !</p>
+        <p className="text-lg font-semibold text-gray-800 mb-2">{t("testCompleted")}</p>
         <button
           onClick={onComplete}
           className="px-4 py-2 rounded-lg text-white text-sm font-semibold"
           style={{ backgroundColor: primaryColor }}
         >
-          Voir les résultats
+          {t("viewResults")}
         </button>
       </div>
     );
@@ -274,10 +275,10 @@ function TestRunner({
 
   const typeBadge: Record<string, { label: string; color: string }> = {
     QCM: { label: "QCM", color: "#6366f1" },
-    TRUE_FALSE: { label: "Vrai / Faux", color: "#0ea5e9" },
-    OPEN: { label: "Question ouverte", color: "#f59e0b" },
-    SCENARIO: { label: "Scénario", color: "#8b5cf6" },
-    RANKING: { label: "Classement", color: "#10b981" },
+    TRUE_FALSE: { label: t("typeTrueFalse"), color: "#0ea5e9" },
+    OPEN: { label: t("openQuestion"), color: "#f59e0b" },
+    SCENARIO: { label: t("scenario"), color: "#8b5cf6" },
+    RANKING: { label: t("typeRanking"), color: "#10b981" },
   };
   const badge = typeBadge[q.type] || { label: q.type, color: "#6b7280" };
   const isMultiAnswerQCM = q.type === "QCM" && (q.options?.correctIndexes?.length ?? 0) > 1;
@@ -294,8 +295,8 @@ function TestRunner({
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>Progression</span>
-            <span>{doneComps}/{totalComps} domaines</span>
+            <span>{t("progression")}</span>
+            <span>{doneComps}/{totalComps} {t("domains")}</span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-500"
@@ -320,7 +321,7 @@ function TestRunner({
           </span>
           {currentQuestion.progressItem && (
             <span className="text-xs text-gray-400">
-              Niveau : {currentQuestion.progressItem.currentLevel}
+              {t("levelLabel")} : {currentQuestion.progressItem.currentLevel}
             </span>
           )}
         </div>
@@ -331,8 +332,8 @@ function TestRunner({
         <div className="space-y-2">
           <p className="text-xs text-indigo-600 font-medium mb-1">
             {isMultiAnswerQCM
-              ? `✦ Sélectionnez ${q.options?.correctIndexes?.length ?? 2} réponses`
-              : "✦ Sélectionnez 1 réponse"}
+              ? t("qcmSelectN").replace("{{n}}", String(q.options?.correctIndexes?.length ?? 2))
+              : t("qcmSelectOne")}
           </p>
           {getChoices(q.options).map((choice, idx) => {
             if (isMultiAnswerQCM) {
@@ -382,7 +383,7 @@ function TestRunner({
       {q.type === "TRUE_FALSE" && (
         <div className="grid grid-cols-2 gap-3">
           {(["true", "false"] as const).map(val => {
-            const label = val === "true" ? "Vrai" : "Faux";
+            const label = val === "true" ? t("trueLabel") : t("falseLabel");
             const isSelected = selectedAnswer === val;
             const expected = q.expectedAnswer?.toLowerCase();
             const showCorrect = feedback !== null && val === expected;
@@ -405,14 +406,14 @@ function TestRunner({
 
       {(q.type === "OPEN" || q.type === "SCENARIO") && (
         <div className="space-y-2">
-          <label className="block text-xs text-gray-500 font-medium">Votre réponse</label>
+          <label className="block text-xs text-gray-500 font-medium">{t("yourAnswer")}</label>
           <textarea rows={5} disabled={answered} value={fillAnswer}
             onChange={e => setFillAnswer(e.target.value)}
-            placeholder="Rédigez votre réponse ici…"
+            placeholder={t("answerPlaceholder")}
             className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-800 bg-white resize-none focus:outline-none focus:ring-2"
             style={{ "--tw-ring-color": primaryColor } as React.CSSProperties} />
           <p className="text-xs text-amber-600 flex items-center gap-1">
-            ℹ️ Votre réponse sera analysée par un correcteur.
+            ℹ️ {t("answerReviewedNote")}
           </p>
         </div>
       )}
@@ -420,7 +421,7 @@ function TestRunner({
       {q.type === "RANKING" && (
         <div className="space-y-2">
           <label className="block text-xs text-gray-500 font-medium">
-            Classez les éléments suivants dans l'ordre (saisissez les numéros séparés par des virgules) :
+            {t("rankItemsLabel")}
           </label>
           {q.options && getChoices(q.options).length > 0 && (
             <ol className="mb-2 space-y-1">
@@ -433,7 +434,7 @@ function TestRunner({
           )}
           <textarea rows={3} disabled={answered} value={fillAnswer}
             onChange={e => setFillAnswer(e.target.value)}
-            placeholder="Ex : 3, 1, 4, 2"
+            placeholder={t("rankItemsPlaceholder")}
             className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-800 bg-white resize-none focus:outline-none focus:ring-2" />
         </div>
       )}
@@ -444,14 +445,14 @@ function TestRunner({
             ? "bg-green-50 text-green-700 border border-green-200"
             : "bg-red-50 text-red-700 border border-red-200"
         }`}>
-          {feedback === "correct" ? "✓ Bonne réponse !" : "✗ Réponse incorrecte"}
+          {feedback === "correct" ? t("correctFeedback") : t("incorrectFeedback")}
         </div>
       )}
 
       <button onClick={handleSubmit} disabled={!canSubmit}
         className="w-full py-3 rounded-xl text-white text-sm font-semibold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
         style={{ backgroundColor: primaryColor }}>
-        Valider
+        {t("validate")}
       </button>
     </div>
   );
@@ -475,17 +476,17 @@ function SessionResults({
       <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 rounded-xl">
         <div className="text-center">
           <p className="text-3xl font-bold" style={{ color: primaryColor }}>{score}%</p>
-          <p className="text-xs text-gray-500">Score global</p>
+          <p className="text-xs text-gray-500">{t("globalScore")}</p>
         </div>
         <div className="h-12 w-px bg-gray-200" />
         <div className="text-center">
           <p className="text-3xl font-bold text-green-500">{passed}</p>
-          <p className="text-xs text-gray-500">{t("competences")} validées</p>
+          <p className="text-xs text-gray-500">{t("competences")} {t("validatedLabel")}</p>
         </div>
         <div className="h-12 w-px bg-gray-200" />
         <div className="text-center">
           <p className="text-3xl font-bold text-red-400">{total - passed}</p>
-          <p className="text-xs text-gray-500">À retravailler</p>
+          <p className="text-xs text-gray-500">{t("toImprove")}</p>
         </div>
       </div>
 
@@ -540,7 +541,7 @@ function SessionResults({
               )}
             </span>
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-gray-500">{p.correctCount}/{p.questionsAsked} correctes</span>
+              <span className="text-gray-500">{p.correctCount}/{p.questionsAsked} {t("correctAnswersLabel")}</span>
               <span className={`px-2 py-0.5 rounded-full font-medium ${
                 p.passed ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
               }`}>
@@ -587,7 +588,7 @@ export default function ParticipantTests() {
       setAssignments(mapped);
       return mapped;
     } catch {
-      toast.error("Erreur de chargement");
+      toast.error(t("loadingError"));
       return [];
     } finally {
       setLoading(false);
@@ -640,7 +641,7 @@ export default function ParticipantTests() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Erreur");
       }
-      toast.success("Demande envoyée à votre administrateur");
+      toast.success(t("retakeRequestSent"));
       await loadData();
     } catch (err: any) {
       toast.error(err.message || "Impossible d'envoyer la demande");
@@ -708,7 +709,7 @@ export default function ParticipantTests() {
         <PageShell>
           <div className="mb-6">
             <button onClick={() => setActiveTest(null)} className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1">
-              ← Retour
+              {t("backNav")}
             </button>
             <h1 className="text-xl font-bold text-gray-800">{activeTest.assignment.test.name}</h1>
           </div>
@@ -730,7 +731,7 @@ export default function ParticipantTests() {
   if (loading) {
     return (
       <div className="flex h-screen bg-gray-50">
-        <div className="flex-1 flex items-center justify-center text-gray-400">Chargement…</div>
+        <div className="flex-1 flex items-center justify-center text-gray-400">{t("loading")}</div>
       </div>
     );
   }
@@ -759,19 +760,19 @@ export default function ParticipantTests() {
 
               <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2 text-sm text-gray-600">
                 <p className="flex items-center gap-2">
-                  <span className="font-medium">Compétences évaluées :</span>
+                  <span className="font-medium">{t("assessedSkills")} :</span>
                   <span>{new Set((confirmingTest.test.competences || []).map((c: any) => c.subSubThemeId).filter(Boolean)).size}</span>
                 </p>
                 {confirmingTest.test.timerEnabled && confirmingTest.test.timerDuration && (
                   <p className="flex items-center gap-2">
                     <Timer size={14} className="text-amber-500" />
-                    <span>Durée limitée : {confirmingTest.test.timerDuration} minutes</span>
+                    <span>{t("limitedDuration")} : {confirmingTest.test.timerDuration} {t("minutes")}</span>
                   </p>
                 )}
                 {confirmingTest.deadline && (
                   <p className="flex items-center gap-2 text-orange-600">
                     <Clock size={14} />
-                    <span>Échéance : {new Date(confirmingTest.deadline).toLocaleDateString("fr-FR")}</span>
+                    <span>{t("deadlineLabel")} : {new Date(confirmingTest.deadline).toLocaleDateString("fr-FR")}</span>
                   </p>
                 )}
               </div>
@@ -781,14 +782,14 @@ export default function ParticipantTests() {
                   onClick={() => setConfirmingTest(null)}
                   className="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
                 >
-                  Annuler
+                  {t("cancel")}
                 </button>
                 <button
                   onClick={() => handleActivate(confirmingTest)}
                   className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-opacity"
                   style={{ backgroundColor: primaryColor }}
                 >
-                  Passer le test
+                  {t("takeTest")}
                 </button>
               </div>
             </div>
@@ -800,7 +801,7 @@ export default function ParticipantTests() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between p-5 border-b">
-                <h2 className="text-lg font-semibold">{viewingResult.assignment.test.name} — Résultats</h2>
+                <h2 className="text-lg font-semibold">{viewingResult.assignment.test.name} — {t("resultsTitle")}</h2>
                 <button onClick={() => setViewingResult(null)} className="text-gray-400 hover:text-gray-600">
                   <X size={20} />
                 </button>
@@ -820,11 +821,11 @@ export default function ParticipantTests() {
 
           {/* Section 1 : Tests à réaliser */}
           <div>
-            <SectionHeader title="Tests à réaliser" count={todo.length} sectionKey="todo" color="#6366f1" />
+            <SectionHeader title={t("testsToComplete")} count={todo.length} sectionKey="todo" color="#6366f1" />
             {sections.todo && (
               <div className="mt-2 space-y-3">
                 {todo.length === 0 ? (
-                  <p className="text-sm text-gray-400 italic px-2">Aucun test à réaliser</p>
+                  <p className="text-sm text-gray-400 italic px-2">{t("noTestsToComplete")}</p>
                 ) : (
                   todo.map(a => (
                     <div
@@ -846,7 +847,7 @@ export default function ParticipantTests() {
                           )}
                           {a.deadline && (
                             <span className="text-orange-500">
-                              Échéance : {new Date(a.deadline).toLocaleDateString("fr-FR")}
+                              {t("deadlineLabel")} : {new Date(a.deadline).toLocaleDateString("fr-FR")}
                             </span>
                           )}
                         </div>
@@ -856,7 +857,7 @@ export default function ParticipantTests() {
                           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-semibold"
                           style={{ backgroundColor: "#6366f1" }}
                         >
-                          <Play size={12} /> Sélectionner
+                          <Play size={12} /> {t("selectTest")}
                         </div>
                       </div>
                     </div>
@@ -868,11 +869,11 @@ export default function ParticipantTests() {
 
           {/* Section 2 : Tests en cours */}
           <div>
-            <SectionHeader title="Tests en cours" count={inProgress.length} sectionKey="inProgress" color="#f59e0b" />
+            <SectionHeader title={t("testsInProgress")} count={inProgress.length} sectionKey="inProgress" color="#f59e0b" />
             {sections.inProgress && (
               <div className="mt-2 space-y-3">
                 {inProgress.length === 0 ? (
-                  <p className="text-sm text-gray-400 italic px-2">Aucun test en cours</p>
+                  <p className="text-sm text-gray-400 italic px-2">{t("noTestsInProgress")}</p>
                 ) : (
                   inProgress.map(a => {
                     const hasSession = a.session && a.session.status === "IN_PROGRESS";
@@ -886,7 +887,7 @@ export default function ParticipantTests() {
                             {hasSession && totalComps > 0 && (
                               <div className="mt-2">
                                 <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                  <span>Progression</span>
+                                  <span>{t("progression")}</span>
                                   <span>{doneComps}/{totalComps} {t("competences").toLowerCase()}</span>
                                 </div>
                                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -897,7 +898,7 @@ export default function ParticipantTests() {
                             )}
                             {a.session?.timeRemaining !== null && a.session?.timeRemaining !== undefined && (
                               <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                                <Clock size={10} /> Temps restant sauvegardé
+                                <Clock size={10} /> {t("timeRemainingSaved")}
                               </p>
                             )}
                           </div>
@@ -907,8 +908,8 @@ export default function ParticipantTests() {
                             style={{ backgroundColor: "#f59e0b" }}
                           >
                             {hasSession
-                              ? <><RotateCcw size={12} /> Reprendre</>
-                              : <><Play size={12} /> Commencer</>
+                              ? <><RotateCcw size={12} /> {t("resumeTest")}</>
+                              : <><Play size={12} /> {t("startTest")}</>
                             }
                           </button>
                         </div>
@@ -922,11 +923,11 @@ export default function ParticipantTests() {
 
           {/* Section 3 : Tests réalisés */}
           <div>
-            <SectionHeader title="Tests réalisés" count={done.length} sectionKey="done" color="#10b981" />
+            <SectionHeader title={t("testsDone")} count={done.length} sectionKey="done" color="#10b981" />
             {sections.done && (
               <div className="mt-2 space-y-3">
                 {done.length === 0 ? (
-                  <p className="text-sm text-gray-400 italic px-2">Aucun test terminé</p>
+                  <p className="text-sm text-gray-400 italic px-2">{t("noTestsDone")}</p>
                 ) : (
                   done.map(a => {
                     const totalComps = a.session?.progress?.length || 0;
@@ -937,15 +938,15 @@ export default function ParticipantTests() {
                         <div>
                           <p className="font-medium text-gray-800">{a.test.name}</p>
                           <p className="text-xs text-gray-500 mt-1">
-                            Score : <span className="font-semibold text-green-600">{score}%</span>{" "}
-                            — {passedComps}/{totalComps} {t("competences").toLowerCase()} validées
+                            {t("scoreDisplay")} : <span className="font-semibold text-green-600">{score}%</span>{" "}
+                            — {passedComps}/{totalComps} {t("competences").toLowerCase()} {t("validatedLabel")}
                           </p>
                           {(a.session as any)?.attemptNumber > 1 && (
                             <span className="text-xs text-gray-400">{t("attempt")} {(a.session as any).attemptNumber}</span>
                           )}
                           {a.session?.completedAt && (
                             <p className="text-xs text-gray-400">
-                              Terminé le {new Date(a.session.completedAt).toLocaleDateString("fr-FR")}
+                              {t("completedOn")} {new Date(a.session.completedAt).toLocaleDateString("fr-FR")}
                             </p>
                           )}
                         </div>
@@ -954,18 +955,18 @@ export default function ParticipantTests() {
                             onClick={() => a.session && setViewingResult({ assignment: a, session: a.session })}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-xs font-semibold hover:bg-gray-50"
                           >
-                            <Eye size={12} /> Résultats
+                            <Eye size={12} /> {t("resultsTitle")}
                           </button>
                           {a.retakeRequest?.status === "PENDING" ? (
                             <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                              <Clock size={12} /> Demande en attente
+                              <Clock size={12} /> {t("retakeRequestPending")}
                             </span>
                           ) : (
                             <button
                               onClick={() => handleRetakeRequest(a)}
                               className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                              <RotateCcw size={14} /> Demander à repasser
+                              <RotateCcw size={14} /> {t("requestRetake")}
                             </button>
                           )}
                         </div>
