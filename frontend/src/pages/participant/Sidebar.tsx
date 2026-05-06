@@ -44,7 +44,7 @@ interface ParticipantSidebarProps {
 export default function ParticipantSidebar({
   primaryColor, accentColor, logoUrl, companyName, firstName, lastName,
 }: ParticipantSidebarProps) {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("participant_sidebar_collapsed") === "true");
 
@@ -58,8 +58,16 @@ export default function ParticipantSidebar({
     navigate("/login");
   }
 
-  const initials = `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase() || "?";
-  const fullName = [firstName, lastName].filter(Boolean).join(" ");
+  // Fallback chain: firstName+lastName → username → email
+  const fullName =
+    [firstName, lastName].filter(Boolean).join(" ") ||
+    user?.username ||
+    user?.email ||
+    "";
+  const initials =
+    (`${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`).toUpperCase() ||
+    (user?.username?.[0] ?? user?.email?.[0] ?? "").toUpperCase() ||
+    "?";
 
   return (
     <aside
