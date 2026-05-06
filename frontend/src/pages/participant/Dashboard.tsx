@@ -128,7 +128,7 @@ export default function ParticipantDashboard() {
         session: a.test?.sessions?.[0] || a.session || null,
       }));
       setAssignments(mapped);
-    }).catch(() => toast.error("Erreur de chargement"))
+    }).catch(() => toast.error(t("loadingError")))
       .finally(() => setLoading(false));
   }, [accessToken]);
 
@@ -169,11 +169,11 @@ export default function ParticipantDashboard() {
         }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Message envoyé à votre administrateur !");
+      toast.success(t("helpMessageSent"));
       setShowHelpModal(false);
       setHelpSubject(""); setHelpTestName(""); setHelpSubTheme(""); setHelpBody("");
     } catch {
-      toast.error("Erreur lors de l'envoi du message");
+      toast.error(t("messageError"));
     } finally {
       setSendingHelp(false);
     }
@@ -186,7 +186,7 @@ export default function ParticipantDashboard() {
       });
       if (!res.ok) throw new Error();
       navigate("/participant/tests");
-    } catch { toast.error("Impossible de démarrer le test"); }
+    } catch { toast.error(t("loadingError")); }
   }
 
   if (loading) {
@@ -204,17 +204,15 @@ export default function ParticipantDashboard() {
         {/* Salutation */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">
-            Bonjour, {profile?.firstName} 👋
+            {t("helloGreeting")}, {profile?.firstName} 👋
           </h1>
-          {/* ITER9: "compétences" → "domaines de compétence" */}
-          <p className="text-gray-500 mt-1">Voici votre tableau de bord de {t("competences").toLowerCase()} sécurité.</p>
+          <p className="text-gray-500 mt-1">{t("dashboardSubtitle")}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Radar chart */}
           <div className="bg-white rounded-xl shadow-sm p-6">
-            {/* ITER9: "Mes compétences" → "Mes domaines de compétence" */}
-            <h2 className="text-base font-semibold text-gray-800 mb-4">Mes {t("competences").toLowerCase()}</h2>
+            <h2 className="text-base font-semibold text-gray-800 mb-4">{t("mySkillAreas")}</h2>
             {radarData.length >= 3 ? (
               <RadarChart
                 labels={radarData.map(d => d.label)}
@@ -226,20 +224,19 @@ export default function ParticipantDashboard() {
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <ClipboardList size={40} className="text-gray-300 mb-3" />
-                <p className="text-gray-400 text-sm">Aucun test terminé pour le moment.</p>
-                {/* ITER9: "compétences" → "domaines de compétence" */}
-                <p className="text-gray-300 text-xs mt-1">Complétez vos tests pour voir votre radar de {t("competences").toLowerCase()}.</p>
+                <p className="text-gray-400 text-sm">{t("noTestsCompletedYet")}</p>
+                <p className="text-gray-300 text-xs mt-1">{t("completeTestsForRadar")}</p>
               </div>
             )}
           </div>
 
           {/* Accès rapide aux tests actifs */}
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">Tests à réaliser</h2>
+            <h2 className="text-base font-semibold text-gray-800 mb-4">{t("testsToComplete")}</h2>
             {activeTests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <CheckCircle size={40} className="text-green-300 mb-3" />
-                <p className="text-gray-400 text-sm">Tous vos tests sont terminés !</p>
+                <p className="text-gray-400 text-sm">{t("allTestsDone")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -258,7 +255,7 @@ export default function ParticipantDashboard() {
                           {isInProgress && totalComp > 0 && (
                             <div className="mt-2">
                               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                <span>Progression</span>
+                                <span>{t("progression")}</span>
                                 <span>{doneComp}/{totalComp}</span>
                               </div>
                               <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -269,7 +266,7 @@ export default function ParticipantDashboard() {
                           )}
                           {a.deadline && (
                             <p className="text-xs text-orange-500 mt-1">
-                              Échéance : {new Date(a.deadline).toLocaleDateString("fr-FR")}
+                              {t("deadlineLabel")} : {new Date(a.deadline).toLocaleDateString("fr-FR")}
                             </p>
                           )}
                         </div>
@@ -277,7 +274,7 @@ export default function ParticipantDashboard() {
                           onClick={() => startOrResumeTest(a)}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-semibold shrink-0"
                           style={{ backgroundColor: primaryColor }}>
-                          {isInProgress ? <><RotateCcw size={12} /> Reprendre</> : <><Play size={12} /> Commencer</>}
+                          {isInProgress ? <><RotateCcw size={12} /> {t("resumeTest")}</> : <><Play size={12} /> {t("startTest")}</>}
                         </button>
                       </div>
                     </div>
@@ -292,15 +289,15 @@ export default function ParticipantDashboard() {
         <div className="grid grid-cols-3 gap-4 mt-6">
           <div className="bg-white rounded-xl shadow-sm p-4 text-center">
             <p className="text-2xl font-bold" style={{ color: primaryColor }}>{assignments.length}</p>
-            <p className="text-xs text-gray-500 mt-1">Tests assignés</p>
+            <p className="text-xs text-gray-500 mt-1">{t("assignedTests")}</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-4 text-center">
             <p className="text-2xl font-bold text-amber-500">{activeTests.length}</p>
-            <p className="text-xs text-gray-500 mt-1">En cours / à faire</p>
+            <p className="text-xs text-gray-500 mt-1">{t("inProgressOrTodo")}</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-4 text-center">
             <p className="text-2xl font-bold text-green-500">{completedTests.length}</p>
-            <p className="text-xs text-gray-500 mt-1">Terminés</p>
+            <p className="text-xs text-gray-500 mt-1">{t("completed")}</p>
           </div>
         </div>
 
@@ -317,8 +314,8 @@ export default function ParticipantDashboard() {
                   <div className="space-y-2">
                     {(a.session?.progress || []).map(p => {
                       const levelLabel: Record<string, string> = {
-                        FONDAMENTAL: "Fondamental", BASIQUE: "Basique", INTERMEDIAIRE: "Intermédiaire",
-                        AVANCE: "Avancé", COMPLET: "Complet",
+                        FONDAMENTAL: t("levelFondamental"), BASIQUE: t("levelBasique"), INTERMEDIAIRE: t("levelIntermediaire"),
+                        AVANCE: t("levelAvance"), COMPLET: t("levelComplet"),
                       };
                       const displayLevel = levelLabel[p.levelReached || p.currentLevel] || p.levelReached || p.currentLevel;
                       const domainName = p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`;
@@ -354,7 +351,7 @@ export default function ParticipantDashboard() {
         className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-3 rounded-full text-white text-sm font-semibold shadow-lg hover:opacity-90 transition-opacity z-40"
         style={{ backgroundColor: primaryColor }}
       >
-        <HelpCircle size={18} /> Besoin d'aide
+        <HelpCircle size={18} /> {t("helpButton")}
       </button>
 
       {/* Modal Besoin d'aide */}
@@ -362,64 +359,64 @@ export default function ParticipantDashboard() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold text-gray-800">Besoin d'aide</h2>
+              <h2 className="text-lg font-semibold text-gray-800">{t("helpButton")}</h2>
               <button onClick={() => setShowHelpModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
             <form onSubmit={handleSendHelp} className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sujet *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("messageSubject")} *</label>
                 <input
                   type="text"
                   value={helpSubject}
                   onChange={e => setHelpSubject(e.target.value)}
                   required
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                  placeholder="Ex : Problème avec un test"
+                  placeholder={t("helpSubjectPlaceholder")}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test concerné</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("relatedTest")}</label>
                 <select
                   value={helpTestName}
                   onChange={e => setHelpTestName(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white"
                 >
-                  <option value="">— Sélectionner un test (optionnel)</option>
+                  <option value="">{t("selectTestOptional")}</option>
                   {assignments.map(a => (
                     <option key={a.id} value={a.test.name}>{a.test.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Compétence / sous-thème</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("skillSubtheme")}</label>
                 <input
                   type="text"
                   value={helpSubTheme}
                   onChange={e => setHelpSubTheme(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                  placeholder="Ex : Sécurité incendie (optionnel)"
+                  placeholder={t("helpSkillPlaceholder")}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("messageBody")} *</label>
                 <textarea
                   value={helpBody}
                   onChange={e => setHelpBody(e.target.value)}
                   required
                   rows={4}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                  placeholder="Décrivez votre problème ou question..."
+                  placeholder={t("helpBodyPlaceholder")}
                 />
               </div>
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setShowHelpModal(false)}
                   className="px-4 py-2 rounded-lg border border-gray-300 text-sm hover:bg-gray-50">
-                  Annuler
+                  {t("cancel")}
                 </button>
                 <button type="submit" disabled={sendingHelp}
                   className="px-4 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50"
                   style={{ backgroundColor: primaryColor }}>
-                  {sendingHelp ? "Envoi..." : "Envoyer"}
+                  {sendingHelp ? t("sending") : t("send")}
                 </button>
               </div>
             </form>

@@ -42,7 +42,7 @@ export default function ParticipantProfile() {
     fetch("/api/participant/profile", { headers: authHeaders })
       .then(r => r.json())
       .then(data => setProfile(data))
-      .catch(() => toast.error("Erreur de chargement"))
+      .catch(() => toast.error(t("loadingError")))
       .finally(() => setLoading(false));
   }, [accessToken]);
 
@@ -65,11 +65,11 @@ export default function ParticipantProfile() {
         }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Message envoyé à votre administrateur !");
+      toast.success(t("helpMessageSent"));
       setShowHelpModal(false);
       setHelpSubject(""); setHelpSubTheme(""); setHelpBody("");
     } catch {
-      toast.error("Erreur lors de l'envoi du message");
+      toast.error(t("messageError"));
     } finally {
       setSendingHelp(false);
     }
@@ -78,11 +78,11 @@ export default function ParticipantProfile() {
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      toast.error("Les mots de passe ne correspondent pas");
+      toast.error(t("passwordsNoMatch"));
       return;
     }
     if (newPassword.length < 8) {
-      toast.error("Le mot de passe doit contenir au moins 8 caractères");
+      toast.error(t("passwordTooShortMsg"));
       return;
     }
     setSavingPassword(true);
@@ -96,7 +96,7 @@ export default function ParticipantProfile() {
         const data = await res.json();
         throw new Error(data.error || "Erreur");
       }
-      toast.success("Mot de passe modifié avec succès");
+      toast.success(t("passwordChangedSuccess"));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -121,7 +121,7 @@ export default function ParticipantProfile() {
       <PageShell>
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">{t("myInfo")}</h1> {/* ITER9 */}
-          <p className="text-gray-500 mt-1">Consultez votre profil et modifiez votre mot de passe.</p>
+          <p className="text-gray-500 mt-1">{t("profileSubtitle")}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl">
@@ -129,42 +129,42 @@ export default function ParticipantProfile() {
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-2 mb-5">
               <User size={18} className="text-gray-400" />
-              <h2 className="text-base font-semibold text-gray-800">Informations personnelles</h2>
+              <h2 className="text-base font-semibold text-gray-800">{t("personalInfo")}</h2>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Prénom</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("firstName")}</label>
                 <div className="px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-800 border border-gray-200">
                   {profile?.firstName || "—"}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Nom</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("lastName")}</label>
                 <div className="px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-800 border border-gray-200">
                   {profile?.lastName || "—"}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("email")}</label>
                 <div className="px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-800 border border-gray-200">
                   {profile?.email || "—"}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Entreprise</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("company")}</label>
                 <div className="px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-800 border border-gray-200">
                   {companyName || "—"}
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-4">Pour modifier ces informations, contactez votre administrateur.</p>
+            <p className="text-xs text-gray-400 mt-4">{t("contactAdminForInfo")}</p>
             <button
               type="button"
               onClick={() => setShowHelpModal(true)}
               className="mt-4 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border-2 hover:opacity-90 transition-opacity"
               style={{ borderColor: primaryColor, color: primaryColor }}
             >
-              <HelpCircle size={15} /> Besoin d'aide
+              <HelpCircle size={15} /> {t("helpButton")}
             </button>
           </div>
 
@@ -176,7 +176,7 @@ export default function ParticipantProfile() {
             </div>
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Mot de passe actuel</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("currentPassword")}</label>
                 <div className="relative">
                   <input
                     type={showCurrent ? "text" : "password"}
@@ -194,7 +194,7 @@ export default function ParticipantProfile() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Nouveau mot de passe</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("newPassword")}</label>
                 <div className="relative">
                   <input
                     type={showNew ? "text" : "password"}
@@ -203,7 +203,7 @@ export default function ParticipantProfile() {
                     required
                     minLength={8}
                     className="w-full px-3 py-2 pr-9 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2"
-                    placeholder="Min. 8 caractères"
+                    placeholder={t("minPasswordChars")}
                   />
                   <button type="button" onClick={() => setShowNew(!showNew)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -212,7 +212,7 @@ export default function ParticipantProfile() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Confirmer le nouveau mot de passe</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("confirmNewPassword")}</label>
                 <div className="relative">
                   <input
                     type={showConfirm ? "text" : "password"}
@@ -229,7 +229,7 @@ export default function ParticipantProfile() {
                 </div>
               </div>
               {newPassword && confirmPassword && newPassword !== confirmPassword && (
-                <p className="text-xs text-red-500">Les mots de passe ne correspondent pas.</p>
+                <p className="text-xs text-red-500">{t("passwordsNoMatch")}</p>
               )}
               <button
                 type="submit"
@@ -237,7 +237,7 @@ export default function ParticipantProfile() {
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50 mt-2"
                 style={{ backgroundColor: primaryColor }}>
                 <Save size={14} />
-                {savingPassword ? "Enregistrement…" : "Enregistrer"}
+                {savingPassword ? t("saving") : t("save")}
               </button>
             </form>
           </div>
@@ -249,51 +249,51 @@ export default function ParticipantProfile() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold text-gray-800">Besoin d'aide</h2>
+              <h2 className="text-lg font-semibold text-gray-800">{t("helpButton")}</h2>
               <button onClick={() => setShowHelpModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
             <form onSubmit={handleSendHelp} className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sujet *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("messageSubject")} *</label>
                 <input
                   type="text"
                   value={helpSubject}
                   onChange={e => setHelpSubject(e.target.value)}
                   required
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                  placeholder="Ex : Question sur mon profil"
+                  placeholder={t("helpSubjectPlaceholder")}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Compétence / sous-thème concerné</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("skillSubtheme")}</label>
                 <input
                   type="text"
                   value={helpSubTheme}
                   onChange={e => setHelpSubTheme(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                  placeholder="Ex : Sécurité incendie (optionnel)"
+                  placeholder={t("helpSkillPlaceholder")}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("messageBody")} *</label>
                 <textarea
                   value={helpBody}
                   onChange={e => setHelpBody(e.target.value)}
                   required
                   rows={4}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                  placeholder="Décrivez votre question ou problème..."
+                  placeholder={t("helpBodyPlaceholder")}
                 />
               </div>
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setShowHelpModal(false)}
                   className="px-4 py-2 rounded-lg border border-gray-300 text-sm hover:bg-gray-50">
-                  Annuler
+                  {t("cancel")}
                 </button>
                 <button type="submit" disabled={sendingHelp}
                   className="px-4 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50"
                   style={{ backgroundColor: primaryColor }}>
-                  {sendingHelp ? "Envoi..." : "Envoyer"}
+                  {sendingHelp ? t("sending") : t("send")}
                 </button>
               </div>
             </form>
