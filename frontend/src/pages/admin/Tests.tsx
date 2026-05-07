@@ -33,6 +33,7 @@ interface Employee {
   department: string | null;
   site: string | null;
   country: string | null;
+  assignments: { testId: number }[];
 }
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
@@ -63,6 +64,7 @@ export default function AdminTests() {
   const [assigningTest, setAssigningTest]       = useState<Test | null>(null);
   const [assignMode, setAssignMode]             = useState<AssignMode>("individual");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
+  const [alreadyAssignedIds, setAlreadyAssignedIds]   = useState<number[]>([]);
   const [employeeSearch, setEmployeeSearch]     = useState("");
   const [filterField, setFilterField]           = useState("position");
   const [filterValue, setFilterValue]           = useState("");
@@ -84,7 +86,9 @@ export default function AdminTests() {
   }, [accessToken]);
 
   function openAssignModal(test: Test) {
+    const alreadyIds = employees.filter(e => e.assignments.some(a => a.testId === test.id)).map(e => e.id);
     setAssigningTest(test); setAssignMode("individual"); setSelectedEmployeeIds([]);
+    setAlreadyAssignedIds(alreadyIds);
     setEmployeeSearch(""); setFilterField("position"); setFilterValue(""); setDeadline("");
   }
 
@@ -201,19 +205,34 @@ export default function AdminTests() {
             {/* Mode individuel */}
             {assignMode === "individual" && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t("searchEmployees")} ({selectedEmployeeIds.length} {t("selectedCount")})</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t("searchEmployees")} ({selectedEmployeeIds.length} {t("selectedCount")})
+                  {alreadyAssignedIds.length > 0 && (
+                    <span className="ml-2 text-xs font-normal text-green-600">· {alreadyAssignedIds.length} {t("alreadyAssigned")}</span>
+                  )}
+                </label>
                 <input type="text" value={employeeSearch} onChange={e => setEmployeeSearch(e.target.value)} placeholder="Nom, prénom, email..." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none mb-2" />
                 <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-lg divide-y">
                   {filteredEmployees.length === 0 && <p className="text-sm text-gray-400 text-center py-4">{t("noResults")}</p>}
                   {filteredEmployees.map(emp => {
+                    const isAlreadyAssigned = alreadyAssignedIds.includes(emp.id);
                     const isSelected = selectedEmployeeIds.includes(emp.id);
                     return (
-                      <label key={emp.id} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors ${isSelected ? "bg-blue-50" : ""}`}>
-                        <input type="checkbox" checked={isSelected} onChange={() => toggleEmployee(emp.id)} className="rounded" />
+                      <label key={emp.id} className={`flex items-center gap-3 px-3 py-2.5 transition-colors ${isAlreadyAssigned ? "bg-green-50 cursor-default" : "cursor-pointer hover:bg-gray-50"} ${isSelected ? "bg-blue-50" : ""}`}>
+                        <input
+                          type="checkbox"
+                          checked={isAlreadyAssigned || isSelected}
+                          onChange={() => { if (!isAlreadyAssigned) toggleEmployee(emp.id); }}
+                          disabled={isAlreadyAssigned}
+                          className="rounded"
+                        />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">{emp.firstName} {emp.lastName}</p>
                           <p className="text-xs text-gray-500 truncate">{emp.email}{emp.position ? ` · ${emp.position}` : ""}</p>
                         </div>
+                        {isAlreadyAssigned && (
+                          <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{t("alreadyAssigned")}</span>
+                        )}
                       </label>
                     );
                   })}

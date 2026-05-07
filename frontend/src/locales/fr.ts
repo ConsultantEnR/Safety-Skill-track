@@ -357,6 +357,7 @@ const fr = {
   assignToEmployees: "Assigner à des salariés",
   department: "Service",
   selectedCount: "sélectionné(s)",
+  alreadyAssigned: "Déjà assigné",
   nameEn: "Nom EN",
   // ITER11: Admin Employees i18n
   birthDate: "Date de naissance",
