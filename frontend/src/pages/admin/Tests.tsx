@@ -67,7 +67,7 @@ export default function AdminTests() {
   const [alreadyAssignedIds, setAlreadyAssignedIds]   = useState<number[]>([]);
   const [employeeSearch, setEmployeeSearch]     = useState("");
   const [filterField, setFilterField]           = useState("position");
-  const [filterValue, setFilterValue]           = useState("");
+  const [filterValues, setFilterValues]         = useState<string[]>([]);
   const [deadline, setDeadline]                 = useState("");
   const [assigning, setAssigning]               = useState(false);
 
@@ -89,7 +89,7 @@ export default function AdminTests() {
     const alreadyIds = employees.filter(e => e.assignments.some(a => a.testId === test.id)).map(e => e.id);
     setAssigningTest(test); setAssignMode("individual"); setSelectedEmployeeIds([]);
     setAlreadyAssignedIds(alreadyIds);
-    setEmployeeSearch(""); setFilterField("position"); setFilterValue(""); setDeadline("");
+    setEmployeeSearch(""); setFilterField("position"); setFilterValues([]); setDeadline("");
   }
 
   function toggleEmployee(id: number) {
@@ -101,7 +101,7 @@ export default function AdminTests() {
     return Array.from(new Set(vals)).sort();
   }
 
-  const groupCount = filterValue ? employees.filter(e => (e as any)[filterField] === filterValue).length : 0;
+  const groupCount = filterValues.length > 0 ? employees.filter(e => filterValues.includes((e as any)[filterField])).length : 0;
   const filteredEmployees = employeeSearch.trim()
     ? employees.filter(e => `${e.firstName} ${e.lastName} ${e.email}`.toLowerCase().includes(employeeSearch.toLowerCase()))
     : employees;
@@ -109,12 +109,12 @@ export default function AdminTests() {
   async function handleAssign() {
     if (!assigningTest) return;
     if (assignMode === "individual" && selectedEmployeeIds.length === 0) { toast.error(t("selectAtLeastOne")); return; }
-    if (assignMode === "group" && !filterValue) { toast.error(t("selectFilterValue")); return; }
+    if (assignMode === "group" && filterValues.length === 0) { toast.error(t("selectFilterValue")); return; }
     setAssigning(true);
     try {
       const body: any = { mode: assignMode, deadline: deadline || null };
       if (assignMode === "individual") body.employeeIds = selectedEmployeeIds;
-      else body.filter = { field: filterField, value: filterValue };
+      else body.filter = { field: filterField, values: filterValues };
       const res = await fetch(`/api/admin/tests/${assigningTest.id}/assign`, { method: "POST", headers: authHeaders, body: JSON.stringify(body) });
       if (!res.ok) throw new Error();
       const result = await res.json();
@@ -269,7 +269,7 @@ export default function AdminTests() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t("groupCriteria")}</label>
-                  <select value={filterField} onChange={e => { setFilterField(e.target.value); setFilterValue(""); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                  <select value={filterField} onChange={e => { setFilterField(e.target.value); setFilterValues([]); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
                     <option value="position">{t("position")}</option>
                     <option value="department">{t("department")}</option>
                     <option value="site">{t("site")}</option>
@@ -277,13 +277,56 @@ export default function AdminTests() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t("groupValue")}</label>
-                  <select value={filterValue} onChange={e => setFilterValue(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
-                    <option value="">Sélectionner...</option>
-                    {distinctValues(filterField as keyof Employee).map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
+                  {(() => {
+                    const options = distinctValues(filterField as keyof Employee);
+                    const allChecked = options.length > 0 && options.every(v => filterValues.includes(v));
+                    const someChecked = options.some(v => filterValues.includes(v));
+                    return (
+                      <>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {t("groupValue")}
+                          {filterValues.length > 0 && (
+                            <span className="ml-2 text-xs font-normal text-blue-600">· {filterValues.length} {t("selectedCount")}</span>
+                          )}
+                        </label>
+                        {options.length === 0 ? (
+                          <p className="text-sm text-gray-400 italic">{t("noResults")}</p>
+                        ) : (
+                          <div className="border border-gray-200 rounded-lg overflow-hidden">
+                            {/* Tout sélectionner */}
+                            <label className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100 text-sm font-medium text-gray-700 select-none">
+                              <input
+                                type="checkbox"
+                                className="rounded"
+                                checked={allChecked}
+                                ref={el => { if (el) el.indeterminate = someChecked && !allChecked; }}
+                                onChange={() => setFilterValues(allChecked ? [] : options)}
+                              />
+                              {t("selectAll")} ({options.length})
+                            </label>
+                            <div className="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                              {options.map(v => (
+                                <label key={v} className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 text-sm text-gray-700 select-none ${filterValues.includes(v) ? "bg-blue-50" : ""}`}>
+                                  <input
+                                    type="checkbox"
+                                    className="rounded"
+                                    checked={filterValues.includes(v)}
+                                    onChange={() => setFilterValues(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
+                                  />
+                                  <span className="flex-1">{v}</span>
+                                  <span className="text-xs text-gray-400">
+                                    {employees.filter(e => (e as any)[filterField] === v).length} sal.
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
-                {filterValue && (
+                {filterValues.length > 0 && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
                     {groupCount} {t("selectedCount")}
                   </div>

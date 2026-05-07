@@ -53,7 +53,7 @@ router.post("/:testId/assign", authenticate, requireRole("CLIENT_ADMIN"), async 
       targetIds = employeeIds;
     } else if (mode === "group" && filter) {
       const where: any = { clientId, isActive: true };
-      where[filter.field] = filter.value;
+      where[filter.field] = Array.isArray(filter.values) ? { in: filter.values } : filter.value;
       const emps = await prisma.employee.findMany({ where, select: { id: true } });
       targetIds = emps.map(e => e.id);
     }
