@@ -48,7 +48,7 @@ function cellStr(row: ExcelJS.Row, col: number): string {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function run() {
-  const filePath = path.join(__dirname, "../../Exemple_format_PERENCO_COMPLET_1.xlsx");
+  const filePath = path.join(__dirname, "../../Safety_Skill_Track_Database_PERENCO_FINAL.xlsx");
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(filePath);
 
@@ -208,8 +208,8 @@ async function run() {
     }
   }
 
-  // ── 4. Parcourir les deux feuilles ────────────────────────────────────────
-  for (const sheetName of ["QCM Vrai Faux", "Question ouverte"]) {
+  // ── 4. Parcourir la feuille Database ─────────────────────────────────────
+  for (const sheetName of ["Database"]) {
     const sheet = wb.getWorksheet(sheetName);
     if (!sheet) { console.warn(`Feuille "${sheetName}" non trouvée`); continue; }
     process.stdout.write(`Traitement "${sheetName}" (${sheet.rowCount - 1} lignes)... `);

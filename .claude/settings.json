@@ -2,7 +2,21 @@
   "permissions": {
     "allow": [
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\NicolasCHAPUS-LECOEU\\\\OneDrive - Dolfines\\\\Bureau\\\\skills-assessment-saas\\\\Safety-Skill-track\\\\backend\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(python -c ' *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\NicolasCHAPUS-LECOEU\\\\OneDrive - Dolfines\\\\Bureau\\\\skills-assessment-saas\\\\Safety-Skill-track\" -Recurse -Depth 3)",
+      "Bash(Select-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\NicolasCHAPUS-LECOEU\\\\OneDrive - Dolfines\\\\Bureau\\\\skills-assessment-saas\\\\Safety-Skill-track\\\\backend\" -Recurse | Where-Object {$_.Extension -match '\\\\.ts$|\\\\.tsx$|\\\\.js$'} | Select-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\NicolasCHAPUS-LECOEU\\\\OneDrive - Dolfines\\\\Bureau\\\\skills-assessment-saas\\\\Safety-Skill-track\\\\backend\\\\src\" -Recurse | Where-Object {$_.Extension -match '\\\\.ts$'} | Select-Object FullName)",
+      "Bash(node -e ' *)",
+      "Bash(node)",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\NicolasCHAPUS-LECOEU\\\\OneDrive - Dolfines\\\\Bureau\\\\skills-assessment-saas\\\\Safety-Skill-track\\\\Users RETEX test 1.docx\" \"c:\\\\tmp\\\\retex.docx\" -Force)",
+      "Bash(Get-ChildItem -Path . -Directory)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\NicolasCHAPUS-LECOEU\\\\OneDrive - Dolfines\\\\Bureau\\\\skills-assessment-saas\\\\Safety-Skill-track\" -Directory)",
+      "PowerShell(ls \"C:\\\\Users\\\\NicolasCHAPUS-LECOEU\\\\OneDrive - Dolfines\\\\Bureau\\\\skills-assessment-saas\\\\Safety-Skill-track\" | ? { $_.PSIsContainer })",
+      "Bash(npx prisma *)"
     ]
   }
 }

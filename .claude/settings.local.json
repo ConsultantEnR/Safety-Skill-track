@@ -3,7 +3,20 @@
     "allow": [
       "PowerShell(python -m pip install pg8000 --quiet 2>&1)",
       "Bash(powershell -Command ' *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://safety-skill-track.vercel.app/health\")",
+      "Bash(git pull *)",
+      "PowerShell(curl.exe -s -w \" | Status: %{http_code}\" \"https://safety-skill-track.vercel.app/health\" --max-time 10)",
+      "Bash(printf '{\"username\":\"nicolas.lecoeur@8p2.fr\",\"password\":\"Dolfines2026.\"}')",
+      "Bash(curl.exe -s -w '\\\\n%{http_code} %{time_total}s' -X POST https://safety-skill-track.vercel.app/api/auth/login -H 'Content-Type: application/json' --data-binary @/tmp/login.json --max-time 15)",
+      "Bash(git stash *)",
+      "Bash(git push *)",
+      "Bash(npx tsc *)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/eslint src/pages/super-admin/Clients.tsx src/pages/super-admin/Tests.tsx src/pages/super-admin/Questions.tsx --rule '{\"@typescript-eslint/no-unused-vars\": \"warn\", \"no-unused-vars\": \"warn\"}' --format compact)",
+      "Bash(node_modules/.bin/eslint src/ --format compact)",
+      "Bash(npm run *)",
+      "PowerShell(head -20)"
     ]
   }
 }
