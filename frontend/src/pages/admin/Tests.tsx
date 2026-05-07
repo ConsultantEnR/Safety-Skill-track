@@ -212,6 +212,30 @@ export default function AdminTests() {
                   )}
                 </label>
                 <input type="text" value={employeeSearch} onChange={e => setEmployeeSearch(e.target.value)} placeholder="Nom, prénom, email..." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none mb-2" />
+                {/* Tout sélectionner */}
+                {(() => {
+                  const selectableIds = filteredEmployees.filter(e => !alreadyAssignedIds.includes(e.id)).map(e => e.id);
+                  const allSelected = selectableIds.length > 0 && selectableIds.every(id => selectedEmployeeIds.includes(id));
+                  const someSelected = selectableIds.some(id => selectedEmployeeIds.includes(id));
+                  return selectableIds.length > 0 ? (
+                    <label className="flex items-center gap-2 px-1 pb-1.5 cursor-pointer text-sm text-gray-600 font-medium select-none">
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={allSelected}
+                        ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                        onChange={() => {
+                          if (allSelected) {
+                            setSelectedEmployeeIds(prev => prev.filter(id => !selectableIds.includes(id)));
+                          } else {
+                            setSelectedEmployeeIds(prev => Array.from(new Set([...prev, ...selectableIds])));
+                          }
+                        }}
+                      />
+                      {t("selectAll")} ({selectableIds.length})
+                    </label>
+                  ) : null;
+                })()}
                 <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-lg divide-y">
                   {filteredEmployees.length === 0 && <p className="text-sm text-gray-400 text-center py-4">{t("noResults")}</p>}
                   {filteredEmployees.map(emp => {

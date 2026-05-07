@@ -358,6 +358,7 @@ const fr = {
   department: "Service",
   selectedCount: "sélectionné(s)",
   alreadyAssigned: "Déjà assigné",
+  selectAll: "Tous les employés",
   nameEn: "Nom EN",
   // ITER11: Admin Employees i18n
   birthDate: "Date de naissance",
