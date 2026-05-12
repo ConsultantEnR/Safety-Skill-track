@@ -1049,7 +1049,7 @@ export default function ParticipantTests() {
                 ) : (
                   done.map(a => {
                     const totalComps = a.session?.progress?.length || 0;
-                    const passedComps = a.session?.progress?.filter(p => p.passed).length || 0;
+                    const passedComps = a.session?.progress?.filter(p => Boolean(getEffectiveLevel(p))).length || 0;
                     const score = totalComps > 0 ? Math.round((passedComps / totalComps) * 100) : 0;
                     return (
                       <div key={a.id} className="bg-white border border-green-100 rounded-xl p-4 flex items-center justify-between">
