@@ -26,6 +26,76 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+const AUTO_QUESTION_TYPES = ["QCM", "TRUE_FALSE", "RANKING"] as const;
+const OPEN_QUESTION_TYPES = ["OPEN", "SCENARIO"] as const;
+const QUESTION_SELECT = {
+  id: true,
+  text: true,
+  type: true,
+  options: true,
+  expectedAnswer: true,
+  correctAnswers: true,
+  level: true,
+  customScore: true,
+} as const;
+
+function getMaxLevelForSST(
+  competences: Array<{ subSubThemeId: number | null; expectedLevel: string }>,
+  subSubThemeId: number
+): string {
+  return competences
+    .filter((c) => c.subSubThemeId === subSubThemeId)
+    .reduce((max, c) => (
+      LEVEL_ORDER.indexOf(c.expectedLevel) > LEVEL_ORDER.indexOf(max) ? c.expectedLevel : max
+    ), "FONDAMENTAL");
+}
+
+function buildQuestionPayload(question: any) {
+  if (question.type === "OPEN" || question.type === "SCENARIO") {
+    return {
+      id: question.id,
+      text: question.text,
+      type: question.type,
+      options: null,
+      expectedAnswer: null,
+      correctAnswers: [],
+      level: question.level,
+      customScore: null,
+    };
+  }
+
+  const options = question.options as any;
+  let shuffledOptions = options;
+  if (options?.choices && Array.isArray(options.choices)) {
+    const indices = options.choices.map((_: any, i: number) => i);
+    const shuffledIndices = shuffle(indices);
+    const shuffledChoices = shuffledIndices.map((i: number) => options.choices[i]);
+    const newCorrectIndex = options.correctIndex !== undefined
+      ? shuffledIndices.indexOf(options.correctIndex)
+      : undefined;
+    const newCorrectIndexes = Array.isArray(options.correctIndexes)
+      ? options.correctIndexes.map((ci: number) => shuffledIndices.indexOf(ci))
+      : undefined;
+    shuffledOptions = {
+      ...options,
+      choices: shuffledChoices,
+      ...(newCorrectIndex !== undefined ? { correctIndex: newCorrectIndex } : {}),
+      ...(newCorrectIndexes ? { correctIndexes: newCorrectIndexes } : {}),
+    };
+  }
+
+  return {
+    id: question.id,
+    text: question.text,
+    type: question.type,
+    options: shuffledOptions,
+    expectedAnswer: question.expectedAnswer,
+    correctAnswers: question.correctAnswers ?? [],
+    level: question.level,
+    customScore: question.customScore ?? null,
+  };
+}
+
 // GET profile
 router.get("/profile", authenticate, requireRole("EMPLOYEE"), async (req, res, next) => {
   try {
@@ -224,7 +294,21 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
 
     const session = await prisma.testSession.findFirst({
       where: { id: Number(req.params.sessionId), employeeId: employee.id, status: "IN_PROGRESS" },
-      include: { progress: true, test: { include: { competences: true } } },
+      select: {
+        id: true,
+        askedQuestionIds: true,
+        progress: true,
+        test: {
+          select: {
+            competences: {
+              select: {
+                subSubThemeId: true,
+                expectedLevel: true,
+              },
+            },
+          },
+        },
+      },
     });
     if (!session) return res.status(404).json({ error: "Session non trouvée ou terminée" });
 
@@ -239,17 +323,29 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
 
     // Boucle sur les niveaux jusqu'à trouver des questions disponibles
     while (true) {
-      const allLevelQuestions = await prisma.question.findMany({
-        where: { subSubThemeId, level: currentLevel as any, type: "QCM" }, // TODO: retirer le filtre type quand tous les types seront activés
-      });
-
-      // Séparer auto (QCM, TRUE_FALSE, RANKING) et open (OPEN, SCENARIO)
-      const autoQ = allLevelQuestions.filter(
-        q => !["OPEN","SCENARIO"].includes(q.type) && !alreadyAsked.has(q.id)
-      );
-      const openQ = allLevelQuestions.filter(
-        q => ["OPEN","SCENARIO"].includes(q.type) && !alreadyAsked.has(q.id)
-      );
+      const questionBaseWhere = {
+        subSubThemeId,
+        level: currentLevel as any,
+        ...(alreadyAsked.size > 0 ? { id: { notIn: Array.from(alreadyAsked) } } : {}),
+      };
+      const [autoQ, openQ] = await Promise.all([
+        prisma.question.findMany({
+          where: {
+            ...questionBaseWhere,
+            type: { in: [...AUTO_QUESTION_TYPES] as any },
+          },
+          select: QUESTION_SELECT,
+          take: 12,
+        }),
+        prisma.question.findMany({
+          where: {
+            ...questionBaseWhere,
+            type: { in: [...OPEN_QUESTION_TYPES] as any },
+          },
+          select: QUESTION_SELECT,
+          take: 6,
+        }),
+      ]);
 
       // Vérifier si on peut encore poser des questions à ce niveau
       const levelAutoAsked = pendingProgress.levelQuestionsAsked;
@@ -260,49 +356,16 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
       // Si on a besoin d'une question auto et qu'il y en a de disponibles
       if (needsMoreAuto && autoQ.length > 0) {
         const question = shuffle(autoQ)[0];
-        // Enregistrer dans askedQuestionIds (double-enregistrement évité côté answer aussi)
         await prisma.testSession.update({
           where: { id: session.id },
           data: { askedQuestionIds: { push: question.id } },
         });
-
-        // ITER12: Shuffler les réponses en mettant à jour correctIndex/correctIndexes
-        const options = question.options as any;
-        let shuffledOptions = options;
-        if (options?.choices && Array.isArray(options.choices)) {
-          // Build shuffled index array so we can remap correctIndex/correctIndexes
-          const indices = options.choices.map((_: any, i: number) => i);
-          const shuffledIndices = shuffle(indices);
-          const shuffledChoices = shuffledIndices.map((i: number) => options.choices[i]);
-          const newCorrectIndex = options.correctIndex !== undefined
-            ? shuffledIndices.indexOf(options.correctIndex)
-            : undefined;
-          const newCorrectIndexes = Array.isArray(options.correctIndexes)
-            ? options.correctIndexes.map((ci: number) => shuffledIndices.indexOf(ci))
-            : undefined;
-          shuffledOptions = {
-            ...options,
-            choices: shuffledChoices,
-            ...(newCorrectIndex !== undefined ? { correctIndex: newCorrectIndex } : {}),
-            ...(newCorrectIndexes ? { correctIndexes: newCorrectIndexes } : {}),
-          };
-        }
-
-        const updatedProgress = await prisma.testSessionProgress.findUnique({ where: { id: pendingProgress.id } });
+        alreadyAsked.add(question.id);
         return res.json({
-          question: {
-            id: question.id,
-            text: question.text,
-            type: question.type,
-            options: shuffledOptions,
-            expectedAnswer: question.expectedAnswer,
-            correctAnswers: (question as any).correctAnswers ?? [],
-            level: question.level,
-            customScore: (question as any).customScore ?? null,
-          },
+          question: buildQuestionPayload(question),
           subSubThemeId,
-          progressItem: updatedProgress || pendingProgress,
-          levelQuestionsAsked: (updatedProgress || pendingProgress).levelQuestionsAsked,
+          progressItem: pendingProgress,
+          levelQuestionsAsked: pendingProgress.levelQuestionsAsked,
         });
       }
 
@@ -313,21 +376,12 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
           where: { id: session.id },
           data: { askedQuestionIds: { push: question.id } },
         });
-        const updatedProgress = await prisma.testSessionProgress.findUnique({ where: { id: pendingProgress.id } });
+        alreadyAsked.add(question.id);
         return res.json({
-          question: {
-            id: question.id,
-            text: question.text,
-            type: question.type,
-            options: null,
-            expectedAnswer: null,
-            correctAnswers: [],
-            level: question.level,
-            customScore: null,
-          },
+          question: buildQuestionPayload(question),
           subSubThemeId,
-          progressItem: updatedProgress || pendingProgress,
-          levelQuestionsAsked: (updatedProgress || pendingProgress).levelQuestionsAsked,
+          progressItem: pendingProgress,
+          levelQuestionsAsked: pendingProgress.levelQuestionsAsked,
         });
       }
 
@@ -338,12 +392,7 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
       // 2. Les 2 questions auto et l'open ont été posées → le SST sera arrêté après l'answer
 
       // Niveau maximum = le plus élevé parmi toutes les TestCompetences pour ce SST dans ce test
-      const maxLevelForSST = session.test.competences
-        .filter((c: any) => c.subSubThemeId === pendingProgress.subSubThemeId)
-        .reduce((max: string, c: any) => {
-          const lvl = (c.expectedLevel as string) || "FONDAMENTAL";
-          return LEVEL_ORDER.indexOf(lvl) > LEVEL_ORDER.indexOf(max) ? lvl : max;
-        }, "FONDAMENTAL");
+      const maxLevelForSST = getMaxLevelForSST(session.test.competences, pendingProgress.subSubThemeId);
       if (autoQ.length === 0 && levelAutoAsked < 3) {
         const next = nextLevel(currentLevel);
         const nextExceedsMaxBank = next ? LEVEL_ORDER.indexOf(next) > LEVEL_ORDER.indexOf(maxLevelForSST) : false;
@@ -353,9 +402,10 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
             where: { id: pendingProgress.id },
             data: { completed: true, passed: false, levelReached: currentLevel as any },
           });
-          // Vérifier si tous les SST sont done
-          const allProgress = await prisma.testSessionProgress.findMany({ where: { sessionId: session.id } });
-          if (allProgress.every(p => p.completed)) {
+          const remainingIncomplete = await prisma.testSessionProgress.count({
+            where: { sessionId: session.id, completed: false, NOT: { id: pendingProgress.id } },
+          });
+          if (remainingIncomplete === 0) {
             await completeSession(session.id, employee);
             return res.json({ done: true });
           }
@@ -390,7 +440,23 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
 
     const session = await prisma.testSession.findFirst({
       where: { id: Number(req.params.sessionId), employeeId: employee.id, status: "IN_PROGRESS" },
-      include: { progress: true, test: { include: { competences: true } } },
+      select: {
+        id: true,
+        testId: true,
+        askedQuestionIds: true,
+        progress: true,
+        test: {
+          select: {
+            name: true,
+            competences: {
+              select: {
+                subSubThemeId: true,
+                expectedLevel: true,
+              },
+            },
+          },
+        },
+      },
     });
     if (!session) return res.status(404).json({ error: "Session non trouvée ou terminée" });
 
@@ -424,15 +490,15 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
             });
             // Notifier le Super Admin
             const superAdmins = await prisma.user.findMany({ where: { role: "SUPER_ADMIN" } });
-            for (const sa of superAdmins) {
-              await prisma.notification.create({
-                data: {
+            if (superAdmins.length > 0) {
+              await prisma.notification.createMany({
+                data: superAdmins.map((sa) => ({
                   userId: sa.id,
                   title: "Nouvelle réponse à analyser",
                   message: `Un salarié a soumis une réponse (${question.type}) à analyser.`,
                   type: "RESPONSE_TO_REVIEW",
                   isRead: false,
-                }
+                })),
               });
             }
           }
@@ -498,13 +564,7 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
         // 2 bonnes réponses auto → passer au niveau suivant (ou terminer si niveau max atteint)
         const next = nextLevel(progressItem.currentLevel as string);
         newLevelReached = progressItem.currentLevel as string;
-        // Niveau maximum = le plus élevé parmi toutes les TestCompetences pour ce SST dans ce test
-        const maxLevel = session.test.competences
-          .filter((c: any) => c.subSubThemeId === subSubThemeId)
-          .reduce((max: string, c: any) => {
-            const lvl = (c.expectedLevel as string) || "FONDAMENTAL";
-            return LEVEL_ORDER.indexOf(lvl) > LEVEL_ORDER.indexOf(max) ? lvl : max;
-          }, "FONDAMENTAL");
+        const maxLevel = getMaxLevelForSST(session.test.competences, subSubThemeId);
         const nextExceedsMax = next ? LEVEL_ORDER.indexOf(next) > LEVEL_ORDER.indexOf(maxLevel) : false;
         if (!next || nextExceedsMax) {
           completed = true;
@@ -542,8 +602,10 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
       await prisma.testSession.update({ where: { id: session.id }, data: { timeRemaining } });
     }
 
-    const updatedProgress = await prisma.testSessionProgress.findMany({ where: { sessionId: session.id } });
-    const allDone = updatedProgress.every(p => p.completed);
+    const remainingIncomplete = await prisma.testSessionProgress.count({
+      where: { sessionId: session.id, completed: false },
+    });
+    const allDone = remainingIncomplete === 0;
 
     if (allDone) {
       await completeSession(session.id, employee);

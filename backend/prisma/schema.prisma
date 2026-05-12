@@ -175,6 +175,8 @@ model Question {
   openResponses  OpenResponse[] // ITER8: réponses ouvertes liées à cette question
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
+  @@index([subSubThemeId, level, type])
 }
 
 model Employee {
