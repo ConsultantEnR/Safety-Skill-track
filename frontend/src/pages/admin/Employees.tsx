@@ -182,14 +182,23 @@ function EmployeeForm({
   );
 }
 
-function EmployeeRow({ emp, onEdit, onToggleActive, onShowCredentials, onShowResults }: {
+function EmployeeRow({ emp, selected, onToggleSelect, onEdit, onToggleActive, onShowCredentials, onShowResults }: {
   emp: Employee; onEdit: (e: Employee) => void;
+  selected: boolean; onToggleSelect: (id: number) => void;
   onToggleActive: (e: Employee) => void; onShowCredentials: (e: Employee) => void;
   onShowResults: (e: Employee) => void;
 }) {
   const { t } = useI18n(); // ITER11
   return (
     <tr className={`border-b hover:bg-gray-50 transition-colors ${!emp.isActive ? "opacity-50" : ""}`}>
+      <td className="px-4 py-3">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(emp.id)}
+          className="rounded"
+        />
+      </td>
       <td className="px-4 py-3 font-medium text-gray-800">{emp.lastName}</td>
       <td className="px-4 py-3 text-gray-700">{emp.firstName}</td>
       <td className="px-4 py-3 text-gray-600">{emp.position || "—"}</td>
@@ -226,10 +235,34 @@ function EmployeeRow({ emp, onEdit, onToggleActive, onShowCredentials, onShowRes
   );
 }
 
-function TableHeaders() {
+function TableHeaders({
+  checked,
+  indeterminate,
+  onToggleAll,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  onToggleAll: () => void;
+}) {
   const { t } = useI18n(); // ITER11
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+
   return (
     <tr className="border-b bg-gray-50">
+      <th className="text-left px-4 py-3 font-semibold text-gray-600 w-12">
+        <input
+          ref={selectAllRef}
+          type="checkbox"
+          checked={checked}
+          onChange={onToggleAll}
+          className="rounded"
+          aria-label={t("selectAll")}
+        />
+      </th>
       <th className="text-left px-4 py-3 font-semibold text-gray-600">{t("lastName")}</th>
       <th className="text-left px-4 py-3 font-semibold text-gray-600">{t("firstName")}</th>
       <th className="text-left px-4 py-3 font-semibold text-gray-600">{t("position")}</th>
@@ -297,6 +330,7 @@ export default function AdminEmployees() {
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [selectedInGroup, setSelectedInGroup] = useState<Set<number>>(new Set());
+  const [bulkSending, setBulkSending] = useState(false);
 
   const authHeaders = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
 
@@ -544,10 +578,63 @@ export default function AdminEmployees() {
     const allSelected = ids.every(id => selectedInGroup.has(id));
     setSelectedInGroup(prev => { const n = new Set(prev); if (allSelected) ids.forEach(id => n.delete(id)); else ids.forEach(id => n.add(id)); return n; });
   }
+  function toggleSelectEmployee(id: number) {
+    setSelectedInGroup(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function selectAllEmployees() {
+    setSelectedInGroup(new Set(employees.map(e => e.id)));
+  }
+  function clearSelection() {
+    setSelectedInGroup(new Set());
+  }
+  async function sendCredentialsToSelection(sendAll = false) {
+    setBulkSending(true);
+    try {
+      if (sendAll) {
+        const res = await fetch("/api/admin/employees/send-all-credentials", {
+          method: "POST",
+          headers: authHeaders,
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        toast.success(`Identifiants envoyés à ${data.sent} salarié(s)`);
+        setSelectedInGroup(new Set());
+      } else {
+        const employeeIds = Array.from(selectedInGroup);
+        if (employeeIds.length === 0) {
+          toast.error("Sélectionnez au moins un salarié");
+          return;
+        }
+        const res = await fetch("/api/admin/employees/send-selected-credentials", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({ employeeIds }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.error || "Erreur");
+        }
+        const data = await res.json();
+        toast.success(`Identifiants envoyés à ${data.sent} salarié(s)`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur lors de l'envoi des identifiants");
+    } finally {
+      setBulkSending(false);
+    }
+  }
 
   const validImportCount = importRows.filter(r => !r._error).length;
   const errorImportCount = importRows.filter(r => r._error).length;
   const groups = getGroups();
+  const allEmployeeIds = employees.map(e => e.id);
+  const allSelected = allEmployeeIds.length > 0 && allEmployeeIds.every(id => selectedInGroup.has(id));
+  const someSelected = allEmployeeIds.some(id => selectedInGroup.has(id));
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -579,6 +666,35 @@ export default function AdminEmployees() {
           </div>
         </div>
 
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <span className="font-medium text-gray-800">{selectedInGroup.size} salarié(s) sélectionné(s)</span>
+            <button onClick={selectAllEmployees} className="text-blue-600 hover:text-blue-800">
+              Tout sélectionner
+            </button>
+            <button onClick={clearSelection} className="text-gray-500 hover:text-gray-700">
+              Effacer
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => sendCredentialsToSelection(false)}
+              disabled={bulkSending || selectedInGroup.size === 0}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {bulkSending ? "Envoi..." : "Envoyer aux sélectionnés"}
+            </button>
+            <button
+              onClick={() => sendCredentialsToSelection(true)}
+              disabled={bulkSending || employees.length === 0}
+              className="rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              style={{ backgroundColor: branding.primaryColor }}
+            >
+              {bulkSending ? "Envoi..." : "Envoyer à tous"}
+            </button>
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-gray-400">{t("loading")}</div> // ITER9
@@ -587,11 +703,11 @@ export default function AdminEmployees() {
           ) : groupBy === "none" ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><TableHeaders /></thead>
+                <thead><TableHeaders checked={allSelected} indeterminate={!allSelected && someSelected} onToggleAll={() => allSelected ? clearSelection() : selectAllEmployees()} /></thead>
                 <tbody>
                   {employees.map(emp => (
-                    <EmployeeRow key={emp.id} emp={emp} onEdit={openEditModal}
-                      onToggleActive={toggleActive} onShowCredentials={handleShowCredentials} onShowResults={handleShowResults} />
+                    <EmployeeRow key={emp.id} emp={emp} selected={selectedInGroup.has(emp.id)} onToggleSelect={toggleSelectEmployee}
+                      onEdit={openEditModal} onToggleActive={toggleActive} onShowCredentials={handleShowCredentials} onShowResults={handleShowResults} />
                   ))}
                 </tbody>
               </table>
@@ -616,11 +732,11 @@ export default function AdminEmployees() {
                     {!isCollapsed && (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                          <thead><TableHeaders /></thead>
+                          <thead><TableHeaders checked={allSelected} indeterminate={!allSelected && someSelected} onToggleAll={() => allSelected ? clearSelection() : selectAllEmployees()} /></thead>
                           <tbody>
                             {group.emps.map(emp => (
-                              <EmployeeRow key={emp.id} emp={emp} onEdit={openEditModal}
-                                onToggleActive={toggleActive} onShowCredentials={handleShowCredentials} onShowResults={handleShowResults} />
+                              <EmployeeRow key={emp.id} emp={emp} selected={selectedInGroup.has(emp.id)} onToggleSelect={toggleSelectEmployee}
+                                onEdit={openEditModal} onToggleActive={toggleActive} onShowCredentials={handleShowCredentials} onShowResults={handleShowResults} />
                             ))}
                           </tbody>
                         </table>

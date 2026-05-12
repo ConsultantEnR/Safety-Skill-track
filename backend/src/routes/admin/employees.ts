@@ -109,6 +109,45 @@ router.post("/send-all-credentials", authenticate, requireRole("CLIENT_ADMIN"), 
   } catch (err) { next(err); }
 });
 
+// POST send credentials to selected employees only
+router.post("/send-selected-credentials", authenticate, requireRole("CLIENT_ADMIN"), async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const employeeIds = Array.isArray(req.body?.employeeIds)
+      ? req.body.employeeIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0)
+      : [];
+    if (employeeIds.length === 0) return res.status(400).json({ error: "Aucun salarié sélectionné" });
+
+    const employees = await prisma.employee.findMany({
+      where: {
+        clientId: user.clientId,
+        id: { in: employeeIds },
+      },
+      include: { user: { select: { username: true } }, client: { select: { name: true } } },
+      orderBy: { lastName: "asc" },
+    });
+
+    let sent = 0;
+    for (const emp of employees) {
+      if (!emp.user) continue;
+      await sendCredentials(
+        emp.email,
+        emp.firstName,
+        emp.user.username,
+        emp.plainPassword || "(non disponible)",
+        emp.client.name
+      );
+      sent++;
+    }
+
+    res.json({
+      requested: employeeIds.length,
+      matched: employees.length,
+      sent,
+    });
+  } catch (err) { next(err); }
+});
+
 // POST import employees
 router.post("/import", authenticate, requireRole("CLIENT_ADMIN"), async (req, res, next) => {
   try {
