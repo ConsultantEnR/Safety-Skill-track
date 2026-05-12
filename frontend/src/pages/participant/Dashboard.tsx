@@ -69,6 +69,7 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
     x: number;
     y: number;
   } | null>(null);
+  const chartSize = 380;
   const labels = data.map((item) => item.label);
   const values = data.map((item) => item.score);
   const expectedValues = data.map((item) => item.expectedScore);
@@ -99,25 +100,28 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
         {(() => {
           const pts = expectedValues.map((v, i) => getPoint(i, r * Math.min(1, (v / maxValue))));
           return <polygon points={pts.map(p => `${p.x},${p.y}`).join(" ")}
-            fill={primaryColor + "24"} stroke={primaryColor + "A6"} strokeWidth="2" strokeDasharray="5 4" />;
+            fill={accentColor + "14"} stroke={accentColor} strokeWidth="2" strokeDasharray="6 5" />;
         })()}
         {/* Zone des valeurs atteintes */}
         {(() => {
           const pts = values.map((v, i) => getPoint(i, r * Math.min(1, (v / maxValue))));
           return <polygon points={pts.map(p => `${p.x},${p.y}`).join(" ")}
-            fill={accentColor + "55"} stroke={accentColor} strokeWidth="2" />;
+            fill={primaryColor + "14"} stroke={primaryColor} strokeWidth="2.5" strokeDasharray="6 5" />;
         })()}
         {/* Points */}
         {values.map((v, i) => {
           const pt = getPoint(i, r * Math.min(1, (v / maxValue)));
+          const expectedPt = getPoint(i, r * Math.min(1, (expectedValues[i] / maxValue)));
           return (
             <g
               key={i}
               onMouseEnter={() => setHoveredPoint({ datum: data[i], x: pt.x, y: pt.y })}
+              onMouseMove={() => setHoveredPoint({ datum: data[i], x: pt.x, y: pt.y })}
               onMouseLeave={() => setHoveredPoint(null)}
             >
-              <circle cx={pt.x} cy={pt.y} r="10" fill="transparent" className="cursor-pointer" />
-              <circle cx={pt.x} cy={pt.y} r="4" fill={primaryColor} className="pointer-events-none" />
+              <circle cx={expectedPt.x} cy={expectedPt.y} r="3.5" fill={accentColor} className="pointer-events-none" opacity="0.9" />
+              <circle cx={pt.x} cy={pt.y} r="14" fill="transparent" className="cursor-pointer" />
+              <circle cx={pt.x} cy={pt.y} r="4.5" fill={primaryColor} className="pointer-events-none" />
             </g>
           );
         })}
@@ -132,10 +136,10 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
       </svg>
       {hoveredPoint && (
         <div
-          className="absolute z-10 min-w-[180px] rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-left shadow-lg backdrop-blur"
+          className="pointer-events-none absolute z-10 min-w-[180px] rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-left shadow-lg backdrop-blur"
           style={{
-            left: `${Math.min(78, Math.max(6, (hoveredPoint.x / 320) * 100 + 4))}%`,
-            top: `${Math.min(78, Math.max(4, (hoveredPoint.y / 320) * 100 - 6))}%`,
+            left: `${Math.min(84, Math.max(8, (hoveredPoint.x / chartSize) * 100))}%`,
+            top: `${Math.min(82, Math.max(10, (hoveredPoint.y / chartSize) * 100 - 2))}%`,
             transform: "translate(-50%, -100%)",
           }}
         >
@@ -315,13 +319,16 @@ export default function ParticipantDashboard() {
                 />
                 <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-500">
                   <span className="flex items-center gap-2">
-                    <span className="inline-block h-2.5 w-5 rounded-full" style={{ backgroundColor: accentColor }} />
+                    <span
+                      className="inline-block h-2.5 w-5 rounded-full border-2 border-dashed"
+                      style={{ backgroundColor: `${primaryColor}14`, borderColor: primaryColor }}
+                    />
                     Niveau atteint
                   </span>
                   <span className="flex items-center gap-2">
                     <span
                       className="inline-block h-2.5 w-5 rounded-full border-2 border-dashed"
-                      style={{ backgroundColor: `${primaryColor}24`, borderColor: `${primaryColor}A6` }}
+                      style={{ backgroundColor: `${accentColor}14`, borderColor: accentColor }}
                     />
                     Niveau attendu
                   </span>
