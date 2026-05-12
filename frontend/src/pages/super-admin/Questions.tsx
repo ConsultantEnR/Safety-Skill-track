@@ -55,9 +55,9 @@ function detectCol(kn: string): string | null {
   if (kn === "question") return "question";
   if (kn === "type" || kn.startsWith("type ") || kn === "categorie" || kn === "format") return "type";
   if (kn === "niveau" || kn === "level" || kn.startsWith("niveau ") || kn.startsWith("level ") || kn.includes("competence") || kn.includes("difficulte") || kn === "bloom") return "level";
-  if (kn === "grand theme" || kn === "theme" || kn === "domaine" || kn === "main theme" || kn === "theme principal" || kn.startsWith("grand theme")) return "theme";
-  if (kn === "sous-theme 1" || kn === "sous theme 1" || kn === "sub-theme 1" || kn === "sub theme 1" || kn.startsWith("sous-theme 1") || kn.startsWith("sous theme 1") || kn === "sous-domaine 1") return "sub1";
-  if (kn === "sous-theme 2" || kn === "sous theme 2" || kn === "sub-theme 2" || kn === "sub theme 2" || kn.startsWith("sous-theme 2") || kn.startsWith("sous theme 2") || kn === "sous-domaine 2") return "sub2";
+  if (kn === "grand theme" || kn === "theme" || kn === "domaine" || kn === "main theme" || kn === "theme principal" || kn === "famille" || kn.startsWith("grand theme")) return "theme";
+  if (kn === "sous-theme 1" || kn === "sous theme 1" || kn === "sub-theme 1" || kn === "sub theme 1" || kn.startsWith("sous-theme 1") || kn.startsWith("sous theme 1") || kn === "sous-domaine 1" || kn === "competence") return "sub1";
+  if (kn === "sous-theme 2" || kn === "sous theme 2" || kn === "sub-theme 2" || kn === "sub theme 2" || kn.startsWith("sous-theme 2") || kn.startsWith("sous theme 2") || kn === "sous-domaine 2" || kn === "sous-competence" || kn === "sous competence" || kn === "sub-competence") return "sub2";
   if (kn === "reponse proposee" || kn === "reponse" || kn === "answer" || kn === "proposed answer" || kn.startsWith("reponse proposee") || kn === "choix") return "answer";
   if (kn === "correcte" || kn === "correct" || kn === "is correct" || kn === "bonne reponse" || kn === "valide") return "isCorrect";
   return null;
@@ -141,8 +141,8 @@ function parseFormatV3(rows: any[][], headers: string[]): ParsedQuestion[] {
   headers.forEach((h, i) => {
     const kn = normalizeH(h.toString());
     if (kn.includes("thematique") || (kn === "theme" && col.theme === undefined)) col.theme = i;
-    else if (kn === "sous-theme 1" || kn === "sous theme 1") col.sub1 = i;
-    else if (kn === "sous-theme 2" || kn === "sous theme 2") col.sub2 = i;
+    else if (kn === "sous-theme 1" || kn === "sous theme 1" || kn === "competence") col.sub1 = i;
+    else if (kn === "sous-theme 2" || kn === "sous theme 2" || kn === "sous-competence" || kn === "sous competence" || kn === "sub-competence") col.sub2 = i;
     else if (kn.includes("niveau") || kn.includes("competence")) col.level = i;
     else if (kn.includes("type")) col.type = i;
     else if (kn === "question") col.question = i;

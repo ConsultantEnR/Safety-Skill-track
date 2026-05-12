@@ -28,6 +28,13 @@ function shuffle<T>(arr: T[]): T[] {
 
 const AUTO_QUESTION_TYPES = ["QCM", "TRUE_FALSE", "RANKING"] as const;
 const OPEN_QUESTION_TYPES = ["OPEN", "SCENARIO"] as const;
+const LEVEL_RANK: Record<string, number> = {
+  FONDAMENTAL: 1,
+  BASIQUE: 2,
+  INTERMEDIAIRE: 3,
+  AVANCE: 4,
+  COMPLET: 5,
+};
 const QUESTION_SELECT = {
   id: true,
   text: true,
@@ -48,6 +55,11 @@ function getMaxLevelForSST(
     .reduce((max, c) => (
       LEVEL_ORDER.indexOf(c.expectedLevel) > LEVEL_ORDER.indexOf(max) ? c.expectedLevel : max
     ), "FONDAMENTAL");
+}
+
+function getBestAttainedLevel(previousLevel: string | undefined, currentLevel: string, correctCountAtCurrentLevel: number): string | null {
+  if (correctCountAtCurrentLevel > 0) return currentLevel;
+  return previousLevel || null;
 }
 
 function buildQuestionPayload(question: any) {
@@ -350,7 +362,7 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
       // Vérifier si on peut encore poser des questions à ce niveau
       const levelAutoAsked = pendingProgress.levelQuestionsAsked;
       const levelOpenAsked = (pendingProgress as any).levelOpenAsked ?? 0;
-      const needsMoreAuto = levelAutoAsked < 2 || (levelAutoAsked === 2 && pendingProgress.levelCorrectCount === 1);
+      const needsMoreAuto = levelAutoAsked < 2;
       const canAskOpen = levelOpenAsked < 1 && openQ.length > 0;
 
       // Si on a besoin d'une question auto et qu'il y en a de disponibles
@@ -572,11 +584,12 @@ router.post("/sessions/:sessionId/answer", authenticate, requireRole("EMPLOYEE")
         } else {
           newCurrentLevel = next;
         }
-      } else if (newLevelQuestionsAsked >= 3 || (newLevelQuestionsAsked >= 2 && newLevelCorrectCount === 0)) {
-        // Échec si 0/2 (irrécupérable) ou si 3 questions posées sans atteindre 2 bonnes (rattrapage raté)
+      } else if (newLevelQuestionsAsked >= 2) {
+        // Le niveau s'arrête après 2 questions.
+        const attainedLevel = getBestAttainedLevel(newLevelReached, progressItem.currentLevel as string, newLevelCorrectCount);
         completed = true;
-        passed = false;
-        newLevelReached = progressItem.currentLevel as string;
+        passed = Boolean(attainedLevel);
+        newLevelReached = attainedLevel || undefined;
       }
     }
 

@@ -4,6 +4,16 @@ import { authenticate, requireRole } from "../../middleware/auth";
 import ExcelJS from "exceljs";
 
 const router = Router();
+const LEVEL_ORDER = ["FONDAMENTAL", "BASIQUE", "INTERMEDIAIRE", "AVANCE", "COMPLET"] as const;
+
+function resolveAttainedLevel(prog: {
+  levelReached: string | null;
+  currentLevel: string;
+  correctCount: number;
+}) {
+  if (prog.levelReached) return prog.levelReached;
+  return prog.correctCount > 0 ? prog.currentLevel : null;
+}
 
 // ITER11: helper – build taxonomy lookup maps (grand theme, sub-theme 1, sub-theme 2)
 async function buildTaxonomyMaps() {
@@ -62,44 +72,54 @@ router.get("/", authenticate, requireRole("CLIENT_ADMIN"), async (req, res, next
     const employeeCount = employees.length;
 
     // Grand theme scores
-    const themeScores: Record<string, { total: number; count: number }> = {};
+    const themeScores: Record<string, { total: number; count: number; levelTotal: number }> = {};
     // Sub-theme 1 scores
-    const subThemeScores: Record<string, { total: number; count: number }> = {};
+    const subThemeScores: Record<string, { total: number; count: number; levelTotal: number }> = {};
     // Sub-theme 2 scores
-    const subSubThemeScores: Record<string, { total: number; count: number }> = {};
+    const subSubThemeScores: Record<string, { total: number; count: number; levelTotal: number }> = {};
 
     for (const emp of employees) {
       for (const session of emp.sessions) {
         for (const prog of session.progress) {
           if (prog.questionsAsked === 0) continue;
           const scoreVal = (prog.correctCount / prog.questionsAsked) * 100;
+          const attainedLevel = resolveAttainedLevel(prog as any);
+          const attainedLevelRank = attainedLevel ? LEVEL_ORDER.indexOf(attainedLevel as any) + 1 : 0;
           const theme = sstThemeMap[prog.subSubThemeId];
           const subTheme = sstSubThemeMap[prog.subSubThemeId];
           const subSubTheme = sstLabelMap[prog.subSubThemeId];
           if (theme) {
-            if (!themeScores[theme]) themeScores[theme] = { total: 0, count: 0 };
-            themeScores[theme].total += scoreVal; themeScores[theme].count++;
+            if (!themeScores[theme]) themeScores[theme] = { total: 0, count: 0, levelTotal: 0 };
+            themeScores[theme].total += scoreVal; themeScores[theme].count++; themeScores[theme].levelTotal += attainedLevelRank;
           }
           if (subTheme) {
-            if (!subThemeScores[subTheme]) subThemeScores[subTheme] = { total: 0, count: 0 };
-            subThemeScores[subTheme].total += scoreVal; subThemeScores[subTheme].count++;
+            if (!subThemeScores[subTheme]) subThemeScores[subTheme] = { total: 0, count: 0, levelTotal: 0 };
+            subThemeScores[subTheme].total += scoreVal; subThemeScores[subTheme].count++; subThemeScores[subTheme].levelTotal += attainedLevelRank;
           }
           if (subSubTheme) {
-            if (!subSubThemeScores[subSubTheme]) subSubThemeScores[subSubTheme] = { total: 0, count: 0 };
-            subSubThemeScores[subSubTheme].total += scoreVal; subSubThemeScores[subSubTheme].count++;
+            if (!subSubThemeScores[subSubTheme]) subSubThemeScores[subSubTheme] = { total: 0, count: 0, levelTotal: 0 };
+            subSubThemeScores[subSubTheme].total += scoreVal; subSubThemeScores[subSubTheme].count++; subSubThemeScores[subSubTheme].levelTotal += attainedLevelRank;
           }
         }
       }
     }
 
-    const radarData = Object.entries(themeScores).map(([theme, { total, count }]) => ({
-      theme, themeEn: themeEnByLabel[theme] || null, score: Math.round(total / count),
+    const radarData = Object.entries(themeScores).map(([theme, { total, count, levelTotal }]) => ({
+      theme,
+      themeEn: themeEnByLabel[theme] || null,
+      score: Math.round(total / count),
+      level: levelTotal > 0 ? LEVEL_ORDER[Math.max(0, Math.min(LEVEL_ORDER.length - 1, Math.round(levelTotal / count) - 1))] : null,
     }));
-    const subThemeData = Object.entries(subThemeScores).map(([theme, { total, count }]) => ({
-      theme, themeEn: subThemeEnByLabel[theme] || null, score: Math.round(total / count),
+    const subThemeData = Object.entries(subThemeScores).map(([theme, { total, count, levelTotal }]) => ({
+      theme,
+      themeEn: subThemeEnByLabel[theme] || null,
+      score: Math.round(total / count),
+      level: levelTotal > 0 ? LEVEL_ORDER[Math.max(0, Math.min(LEVEL_ORDER.length - 1, Math.round(levelTotal / count) - 1))] : null,
     }));
-    const subSubThemeData = Object.entries(subSubThemeScores).map(([theme, { total, count }]) => ({
-      theme, score: Math.round(total / count),
+    const subSubThemeData = Object.entries(subSubThemeScores).map(([theme, { total, count, levelTotal }]) => ({
+      theme,
+      score: Math.round(total / count),
+      level: levelTotal > 0 ? LEVEL_ORDER[Math.max(0, Math.min(LEVEL_ORDER.length - 1, Math.round(levelTotal / count) - 1))] : null,
     }));
 
     const themes = await prisma.theme.findMany({ orderBy: { label: "asc" } });
@@ -162,9 +182,9 @@ router.get("/export", authenticate, requireRole("CLIENT_ADMIN"), async (req, res
       { header: "Pays",            key: "country",        width: 15 },
       { header: "Poste",           key: "position",       width: 20 },
       { header: "Test",            key: "testName",       width: 30 },
-      { header: "Grand thème",     key: "grandTheme",     width: 25 },
-      { header: "Sous-thème 1",    key: "subThemeName",   width: 25 },
-      { header: "Sous-thème 2",    key: "subSubTheme",    width: 30 },
+      { header: "Famille",         key: "grandTheme",     width: 25 },
+      { header: "Compétence",      key: "subThemeName",   width: 25 },
+      { header: "Sous-compétence", key: "subSubTheme",    width: 30 },
       { header: "Questions posées",key: "questionsAsked", width: 18 },
       { header: "Bonnes réponses", key: "correctCount",   width: 18 },
       { header: "Score (%)",       key: "score",          width: 12 },
@@ -237,7 +257,7 @@ router.get("/export", authenticate, requireRole("CLIENT_ADMIN"), async (req, res
 <h1>Résultats — exporté le ${new Date().toLocaleDateString("fr-FR")}</h1>
 <table><thead><tr>
   <th>Nom</th><th>Prénom</th><th>Email</th><th>Test</th>
-  <th>Grand thème</th><th>Sous-thème 2</th>
+  <th>Famille</th><th>Sous-compétence</th>
   <th>Questions</th><th>Bonnes rép.</th><th>Score</th><th>Terminé le</th>
 </tr></thead><tbody>
 ${rows.map(r => `<tr>

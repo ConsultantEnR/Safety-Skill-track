@@ -10,10 +10,10 @@ import {
   Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { Users, Star, Download, ChevronDown, ChevronUp, RotateCcw, Check, X } from "lucide-react";
+import { Users, Download, ChevronDown, ChevronUp, RotateCcw, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
 
-interface ScoreEntry { theme: string; themeEn?: string | null; score: number; }
+interface ScoreEntry { theme: string; themeEn?: string | null; score: number; level?: string | null; }
 
 interface DashboardData {
   employeeCount: number;
@@ -29,25 +29,18 @@ interface DashboardData {
   };
 }
 
-function StarRating({ score }: { score: number }) {
-  const stars = Math.round((score / 100) * 5);
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map(i => (
-        <Star key={i} size={14}
-          fill={i <= stars ? "#FCC00E" : "none"}
-          stroke={i <= stars ? "#FCC00E" : "#d1d5db"} />
-      ))}
-      <span className="ml-1 text-xs text-gray-500">{stars}/5</span>
-    </div>
-  );
-}
-
 function ScoreBar({ data, color, title, accentColor }: {
   data: ScoreEntry[]; color: string; title: string; accentColor: string;
 }) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const tlEntry = (item: ScoreEntry) => lang === "en" && item.themeEn ? item.themeEn : item.theme;
+  const levelLabelMap: Record<string, string> = {
+    FONDAMENTAL: t("levelFondamental"),
+    BASIQUE: t("levelBasique"),
+    INTERMEDIAIRE: t("levelIntermediaire"),
+    AVANCE: t("levelAvance"),
+    COMPLET: t("levelComplet"),
+  };
   const [collapsed, setCollapsed] = useState(false);
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
@@ -63,7 +56,9 @@ function ScoreBar({ data, color, title, accentColor }: {
             <div key={idx} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
               <p className="text-sm text-gray-700 truncate flex-1 mr-3" title={tlEntry(item)}>{tlEntry(item)}</p>
               <div className="flex items-center gap-2 shrink-0">
-                <StarRating score={item.score} />
+                <span className="min-w-[96px] rounded-full bg-indigo-50 px-2.5 py-1 text-center text-xs font-semibold text-indigo-700">
+                  {item.level ? levelLabelMap[item.level] || item.level : "—"}
+                </span>
                 <div className="w-16 bg-gray-100 rounded-full h-1.5">
                   <div className="h-1.5 rounded-full transition-all duration-300"
                     style={{ width: `${item.score}%`, backgroundColor: accentColor }} />

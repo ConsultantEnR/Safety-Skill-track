@@ -73,6 +73,10 @@ interface QuestionData {
   progressItem?: { questionsAsked: number; currentLevel: string };
 }
 
+function getEffectiveLevel(progress: SessionProgress) {
+  return progress.levelReached || (progress.correctCount > 0 ? progress.currentLevel : null);
+}
+
 function formatTime(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
@@ -469,8 +473,12 @@ function SessionResults({
 }) {
   const { t } = useI18n();
   const total = (session?.progress || []).length;
-  const passed = (session?.progress || []).filter(p => p.passed).length;
-  const score = total > 0 ? Math.round((passed / total) * 100) : 0;
+  const validated = (session?.progress || []).filter(p => Boolean(getEffectiveLevel(p))).length;
+  const score = total > 0
+    ? Math.round((session.progress || []).reduce((sum, p) => (
+        sum + (p.questionsAsked > 0 ? Math.round((p.correctCount / p.questionsAsked) * 100) : 0)
+      ), 0) / total)
+    : 0;
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 rounded-xl">
@@ -480,12 +488,12 @@ function SessionResults({
         </div>
         <div className="h-12 w-px bg-gray-200" />
         <div className="text-center">
-          <p className="text-3xl font-bold text-green-500">{passed}</p>
+          <p className="text-3xl font-bold text-green-500">{validated}</p>
           <p className="text-xs text-gray-500">{t("competences")} {t("validatedLabel")}</p>
         </div>
         <div className="h-12 w-px bg-gray-200" />
         <div className="text-center">
-          <p className="text-3xl font-bold text-red-400">{total - passed}</p>
+          <p className="text-3xl font-bold text-red-400">{total - validated}</p>
           <p className="text-xs text-gray-500">{t("toImprove")}</p>
         </div>
       </div>
@@ -500,9 +508,9 @@ function SessionResults({
             <div key={prog.id} className="flex items-center gap-3 text-sm">
               <span className="flex-1 text-gray-600 text-xs">
                 {prog.subSubThemeLabel || `${t("competencyDomain")} ${prog.subSubThemeId}`}
-                {prog.currentLevel && (
+                {getEffectiveLevel(prog) && (
                   <span className="ml-1 text-gray-400">
-                    ({prog.currentLevel.charAt(0) + prog.currentLevel.slice(1).toLowerCase()})
+                    ({String(getEffectiveLevel(prog)).charAt(0) + String(getEffectiveLevel(prog)).slice(1).toLowerCase()})
                   </span>
                 )}
               </span>
@@ -516,12 +524,12 @@ function SessionResults({
                   ({prog.pointsEarned ?? 0}/{prog.maxPoints} pts)
                 </span>
               )}
-              <span className={`text-xs font-semibold ${prog.passed ? "text-green-600" : "text-red-500"}`}>
-                {prog.passed ? t("passed") : t("failed")}
+              <span className={`text-xs font-semibold ${getEffectiveLevel(prog) ? "text-green-600" : "text-red-500"}`}>
+                {getEffectiveLevel(prog) ? t("passed") : t("failed")}
               </span>
-              {prog.levelReached && (
+              {getEffectiveLevel(prog) && (
                 <span className="text-xs px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
-                  {prog.levelReached.charAt(0) + prog.levelReached.slice(1).toLowerCase()}
+                  {String(getEffectiveLevel(prog)).charAt(0) + String(getEffectiveLevel(prog)).slice(1).toLowerCase()}
                 </span>
               )}
             </div>
@@ -534,18 +542,18 @@ function SessionResults({
           <div key={p.id} className="flex items-center justify-between px-4 py-3">
             <span className="text-sm text-gray-700">
               {p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`}
-              {p.levelReached && (
+              {getEffectiveLevel(p) && (
                 <span className="ml-1 text-xs text-gray-400">
-                  · {p.levelReached.charAt(0) + p.levelReached.slice(1).toLowerCase()}
+                  · {String(getEffectiveLevel(p)).charAt(0) + String(getEffectiveLevel(p)).slice(1).toLowerCase()}
                 </span>
               )}
             </span>
             <div className="flex items-center gap-3 text-xs">
               <span className="text-gray-500">{p.correctCount}/{p.questionsAsked} {t("correctAnswersLabel")}</span>
               <span className={`px-2 py-0.5 rounded-full font-medium ${
-                p.passed ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+                getEffectiveLevel(p) ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
               }`}>
-                {p.passed ? t("passed") : t("failed")}
+                {getEffectiveLevel(p) ? t("passed") : t("failed")}
               </span>
             </div>
           </div>

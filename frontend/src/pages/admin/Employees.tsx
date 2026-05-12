@@ -49,6 +49,7 @@ interface EmployeeResults {
       correctCount: number;
       passed: boolean;
       currentLevel: string;
+      levelReached?: string | null;
     }[];
   }[];
 }
@@ -71,6 +72,17 @@ const emptyForm: EmployeeFormData = {
 };
 
 type GroupBy = "none" | "site" | "position" | "country";
+const LEVEL_LABELS: Record<string, string> = {
+  FONDAMENTAL: "Fondamental",
+  BASIQUE: "Basique",
+  INTERMEDIAIRE: "Intermédiaire",
+  AVANCE: "Avancé",
+  COMPLET: "Complet",
+};
+
+function getEffectiveLevel(progress: EmployeeResults["sessions"][number]["progress"][number]) {
+  return progress.levelReached || (progress.correctCount > 0 ? progress.currentLevel : null);
+}
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -742,26 +754,32 @@ export default function AdminEmployees() {
                   name: p.subSubThemeName.length > 18 ? p.subSubThemeName.slice(0, 18) + "…" : p.subSubThemeName,
                   fullName: p.subSubThemeName,
                   score: p.questionsAsked > 0 ? Math.round((p.correctCount / p.questionsAsked) * 100) : 0,
-                  passed: p.passed,
+                  level: getEffectiveLevel(p),
+                  validated: Boolean(getEffectiveLevel(p)),
                 }));
                 const total = session.progress.length;
-                const passed = session.progress.filter(p => p.passed).length;
+                const validated = session.progress.filter(p => Boolean(getEffectiveLevel(p))).length;
+                const globalScore = total > 0
+                  ? Math.round(session.progress.reduce((sum, p) => (
+                      sum + (p.questionsAsked > 0 ? Math.round((p.correctCount / p.questionsAsked) * 100) : 0)
+                    ), 0) / total)
+                  : 0;
                 return (
                   <div className="space-y-4">
                     {/* Score summary */}
                     <div className="flex gap-3">
                       <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
                         <p className="text-2xl font-bold" style={{ color: branding.primaryColor }}>
-                          {total > 0 ? Math.round((passed / total) * 100) : 0}%
+                          {globalScore}%
                         </p>
                         <p className="text-xs text-gray-500">Score global</p>
                       </div>
                       <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                        <p className="text-2xl font-bold text-green-600">{passed}</p>
+                        <p className="text-2xl font-bold text-green-600">{validated}</p>
                         <p className="text-xs text-green-600">Validées</p>
                       </div>
                       <div className="flex-1 bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-                        <p className="text-2xl font-bold text-red-500">{total - passed}</p>
+                        <p className="text-2xl font-bold text-red-500">{total - validated}</p>
                         <p className="text-xs text-red-500">À retravailler</p>
                       </div>
                     </div>
@@ -776,12 +794,15 @@ export default function AdminEmployees() {
                             <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} />
                             <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#9ca3af" }} />
                             <Tooltip
-                              formatter={(value: any, _: any, props: any) => [`${value}%`, props.payload.fullName]}
+                              formatter={(value: any, _: any, props: any) => {
+                                const level = props.payload.level ? LEVEL_LABELS[props.payload.level] || props.payload.level : "À retravailler";
+                                return [`${value}% · ${level}`, props.payload.fullName];
+                              }}
                               contentStyle={{ fontSize: 12, borderRadius: 8 }}
                             />
                             <Bar dataKey="score" radius={[4, 4, 0, 0]}>
                               {chartData.map((entry, i) => (
-                                <Cell key={i} fill={entry.passed ? "#10b981" : "#f87171"} />
+                                <Cell key={i} fill={entry.validated ? "#10b981" : "#f87171"} />
                               ))}
                             </Bar>
                           </BarChart>
@@ -792,6 +813,27 @@ export default function AdminEmployees() {
                         </div>
                       </div>
                     )}
+                    <div className="space-y-2">
+                      {session.progress.map((p) => {
+                        const effectiveLevel = getEffectiveLevel(p);
+                        const score = p.questionsAsked > 0 ? Math.round((p.correctCount / p.questionsAsked) * 100) : 0;
+                        const validatedLabel = effectiveLevel ? "Validée" : "À retravailler";
+                        return (
+                          <div key={p.subSubThemeId} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800">{p.subSubThemeName}</p>
+                              <p className="text-xs text-gray-500">{p.correctCount}/{p.questionsAsked} correct</p>
+                            </div>
+                            <div className="ml-4 flex items-center gap-3 shrink-0">
+                              <span className="text-sm font-semibold text-gray-700">{score}%</span>
+                              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${effectiveLevel ? "bg-indigo-50 text-indigo-700" : "bg-gray-100 text-gray-500"}`}>
+                                {effectiveLevel ? (LEVEL_LABELS[effectiveLevel] || effectiveLevel) : validatedLabel}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })()}

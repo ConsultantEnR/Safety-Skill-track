@@ -21,6 +21,10 @@ interface SessionProgress {
   subSubThemeLabel?: string;  // ITER12: enriched by backend
 }
 
+function getEffectiveLevel(progress: SessionProgress) {
+  return progress.levelReached || (progress.correctCount > 0 ? progress.currentLevel : null);
+}
+
 interface Session {
   id: number;
   status: string;
@@ -317,7 +321,8 @@ export default function ParticipantDashboard() {
                         FONDAMENTAL: t("levelFondamental"), BASIQUE: t("levelBasique"), INTERMEDIAIRE: t("levelIntermediaire"),
                         AVANCE: t("levelAvance"), COMPLET: t("levelComplet"),
                       };
-                      const displayLevel = levelLabel[p.levelReached || p.currentLevel] || p.levelReached || p.currentLevel;
+                      const effectiveLevel = getEffectiveLevel(p);
+                      const displayLevel = effectiveLevel ? (levelLabel[effectiveLevel] || effectiveLevel) : "À retravailler";
                       const domainName = p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`;
                       return (
                         <div key={p.subSubThemeId}
@@ -331,8 +336,8 @@ export default function ParticipantDashboard() {
                               {p.pointsEarned ?? 0}/{p.maxPoints} pts
                             </span>
                           )}
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                            {p.passed ? t("passed") : t("failed")}
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${effectiveLevel ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                            {effectiveLevel ? t("passed") : t("failed")}
                           </span>
                         </div>
                       );

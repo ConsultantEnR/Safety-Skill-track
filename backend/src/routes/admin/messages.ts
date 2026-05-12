@@ -19,6 +19,16 @@ router.get("/", authenticate, requireRole("CLIENT_ADMIN"), async (req, res, next
   } catch (err) { next(err); }
 });
 
+router.get("/pending-count", authenticate, requireRole("CLIENT_ADMIN"), async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const count = await prisma.message.count({
+      where: { toClientId: user.clientId, isHandled: false },
+    });
+    res.json({ count });
+  } catch (err) { next(err); }
+});
+
 // POST send message to super admin
 router.post("/", authenticate, requireRole("CLIENT_ADMIN"), async (req, res, next) => {
   try {

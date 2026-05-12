@@ -169,6 +169,7 @@ router.get("/:id/results", authenticate, requireRole("CLIENT_ADMIN"), async (req
           correctCount: p.correctCount,
           passed: p.passed,
           currentLevel: p.currentLevel,
+          levelReached: p.levelReached,
         })),
       })),
     });

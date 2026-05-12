@@ -59,17 +59,16 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, [user]);
 
-  // ITER7: Load unread notification count for CLIENT_ADMIN — polling toutes les 30s
+  // CLIENT_ADMIN: badge = employee messages still pending in the admin inbox
   useEffect(() => {
     if (user?.role !== "CLIENT_ADMIN") return;
 
     function fetchNotifications() {
       const stored = JSON.parse(localStorage.getItem("auth") || "{}");
       if (!stored?.accessToken) return;
-      fetch("/api/admin/notifications", { headers: { Authorization: `Bearer ${stored.accessToken}` } })
-        .then(r => r.ok ? r.json() : [])
-        // ITER10: exclure TEST_COMPLETED du badge "Mes messages"
-        .then((ns: any[]) => setUnreadCount(ns.filter(n => !n.isRead && n.type !== "TEST_COMPLETED").length))
+      fetch("/api/admin/messages/pending-count", { headers: { Authorization: `Bearer ${stored.accessToken}` } })
+        .then(r => r.ok ? r.json() : { count: 0 })
+        .then((data: { count: number }) => setUnreadCount(data.count || 0))
         .catch(() => {});
     }
 
