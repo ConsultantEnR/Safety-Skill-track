@@ -108,6 +108,18 @@ function meetsExpectedLevel(progress: SessionProgress, expectedLevel: string | n
   return (LEVEL_SCORE[effectiveLevel] || 0) >= (LEVEL_SCORE[expectedLevel] || 0);
 }
 
+function getValidatedCompetenceCount(progress: SessionProgress[], competences: any[]) {
+  return (progress || []).filter((item) => (
+    meetsExpectedLevel(item, getExpectedLevelForSubSubTheme(competences || [], item.subSubThemeId))
+  )).length;
+}
+
+function isSessionSuccessful(progress: SessionProgress[], competences: any[]) {
+  const total = (progress || []).length;
+  if (total === 0) return false;
+  return getValidatedCompetenceCount(progress, competences) === total;
+}
+
 function getSessionScore(progress: SessionProgress[]): number {
   const items = progress || [];
   const total = items.length;
@@ -591,20 +603,19 @@ function SessionResults({
 }) {
   const { t } = useI18n();
   const total = (session?.progress || []).length;
-  const validated = (session?.progress || []).filter((p) => (
-    meetsExpectedLevel(p, getExpectedLevelForSubSubTheme(assignment.test.competences || [], p.subSubThemeId))
-  )).length;
+  const validated = getValidatedCompetenceCount(session?.progress || [], assignment.test.competences || []);
+  const successful = total > 0 && validated === total;
   const score = getSessionScore(session?.progress || []);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 rounded-xl">
         <div className="text-center">
-          <p className="text-3xl font-bold" style={{ color: primaryColor }}>{score}%</p>
+          <p className={`text-3xl font-bold ${successful ? "text-green-600" : "text-red-500"}`}>{score}%</p>
           <p className="text-xs text-gray-500">{t("globalScore")}</p>
         </div>
         <div className="h-12 w-px bg-gray-200" />
         <div className="text-center">
-          <p className="text-3xl font-bold text-green-500">{validated}</p>
+          <p className={`text-3xl font-bold ${validated > 0 ? "text-green-500" : "text-red-400"}`}>{validated}</p>
           <p className="text-xs text-gray-500">{t("competences")} {t("validatedLabel")}</p>
         </div>
         <div className="h-12 w-px bg-gray-200" />
@@ -1097,16 +1108,15 @@ export default function ParticipantTests() {
                 ) : (
                   done.map(a => {
                     const totalComps = a.session?.progress?.length || 0;
-                    const passedComps = a.session?.progress?.filter((p) => (
-                      meetsExpectedLevel(p, getExpectedLevelForSubSubTheme(a.test.competences || [], p.subSubThemeId))
-                    )).length || 0;
+                    const passedComps = getValidatedCompetenceCount(a.session?.progress || [], a.test.competences || []);
+                    const successful = isSessionSuccessful(a.session?.progress || [], a.test.competences || []);
                     const score = getSessionScore(a.session?.progress || []);
                     return (
-                      <div key={a.id} className="bg-white border border-green-100 rounded-xl p-4 flex items-center justify-between">
+                      <div key={a.id} className={`bg-white border rounded-xl p-4 flex items-center justify-between ${successful ? "border-green-100" : "border-red-100"}`}>
                         <div>
                           <p className="font-medium text-gray-800">{a.test.name}</p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {t("scoreDisplay")} : <span className="font-semibold text-green-600">{score}%</span>{" "}
+                            {t("scoreDisplay")} : <span className={`font-semibold ${successful ? "text-green-600" : "text-red-500"}`}>{score}%</span>{" "}
                             — {passedComps}/{totalComps} {t("competences").toLowerCase()} {t("validatedLabel")}
                           </p>
                           {(a.session as any)?.attemptNumber > 1 && (
