@@ -85,6 +85,18 @@ function getEffectiveLevel(progress: SessionProgress) {
   return progress.levelReached || (progress.correctCount > 0 ? progress.currentLevel : null);
 }
 
+function getSessionScore(progress: SessionProgress[]): number {
+  const items = progress || [];
+  const total = items.length;
+  if (total === 0) return 0;
+
+  return Math.round(
+    items.reduce((sum, item) => (
+      sum + (item.questionsAsked > 0 ? Math.round((item.correctCount / item.questionsAsked) * 100) : 0)
+    ), 0) / total
+  );
+}
+
 function getTotalQuestionCount(competences: any[]): number {
   const levelCount = (competences || []).filter((competence) => {
     const subSubThemeId = Number(competence?.subSubThemeId);
@@ -551,11 +563,7 @@ function SessionResults({
   const { t } = useI18n();
   const total = (session?.progress || []).length;
   const validated = (session?.progress || []).filter(p => Boolean(getEffectiveLevel(p))).length;
-  const score = total > 0
-    ? Math.round((session.progress || []).reduce((sum, p) => (
-        sum + (p.questionsAsked > 0 ? Math.round((p.correctCount / p.questionsAsked) * 100) : 0)
-      ), 0) / total)
-    : 0;
+  const score = getSessionScore(session?.progress || []);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 rounded-xl">
@@ -1050,7 +1058,7 @@ export default function ParticipantTests() {
                   done.map(a => {
                     const totalComps = a.session?.progress?.length || 0;
                     const passedComps = a.session?.progress?.filter(p => Boolean(getEffectiveLevel(p))).length || 0;
-                    const score = totalComps > 0 ? Math.round((passedComps / totalComps) * 100) : 0;
+                    const score = getSessionScore(a.session?.progress || []);
                     return (
                       <div key={a.id} className="bg-white border border-green-100 rounded-xl p-4 flex items-center justify-between">
                         <div>
