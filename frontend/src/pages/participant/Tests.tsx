@@ -72,7 +72,13 @@ interface QuestionData {
     expectedAnswer?: string;
   };
   subSubThemeId?: number;
-  progressItem?: { questionsAsked: number; currentLevel: string };
+  progressItem?: {
+    questionsAsked: number;
+    currentLevel: string;
+    levelQuestionsAsked?: number;
+    levelCorrectCount?: number;
+    completed?: boolean;
+  };
 }
 
 function getEffectiveLevel(progress: SessionProgress) {
@@ -103,6 +109,37 @@ function getQuestionProgress(
   const percent = total > 0 ? Math.round((current / total) * 100) : 0;
 
   return { total, answered, current, percent };
+}
+
+function getCurrentCompetenceProgress(
+  progress: SessionProgress[],
+  currentSubSubThemeId?: number
+) {
+  const total = progress.length;
+  if (total === 0) return { total: 0, current: 0, completed: 0, percent: 0 };
+
+  const completed = progress.filter((item) => item.completed).length;
+  const index = currentSubSubThemeId
+    ? progress.findIndex((item) => item.subSubThemeId === currentSubSubThemeId)
+    : -1;
+  const current = index >= 0 ? index + 1 : Math.min(total, completed + 1);
+  const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+
+  return { total, current, completed, percent };
+}
+
+function getAdaptiveLevelProgress(progressItem?: QuestionData["progressItem"]) {
+  const levelQuestionsAsked = Math.max(0, progressItem?.levelQuestionsAsked || 0);
+  const levelCorrectCount = Math.max(0, progressItem?.levelCorrectCount || 0);
+  const total = Math.min(3, Math.max(2, levelQuestionsAsked + 1));
+  const percent = total > 0 ? Math.round((levelCorrectCount / total) * 100) : 0;
+
+  return {
+    currentLevel: progressItem?.currentLevel || null,
+    correct: levelCorrectCount,
+    total,
+    percent,
+  };
 }
 
 function formatTime(secs: number): string {
@@ -247,11 +284,8 @@ function TestRunner({
     setTimeout(() => fetchNextQuestion(), delay);
   }
 
-  const totalQuestions = getTotalQuestionCount(assignment.test.competences || []);
-  const displayedQuestionNumber = currentQuestion?.done
-    ? Math.min(totalQuestions, answeredQuestionsCount)
-    : Math.min(totalQuestions, answeredQuestionsCount + (currentQuestion?.question ? 1 : 0));
-  const progressPct = totalQuestions > 0 ? Math.round((displayedQuestionNumber / totalQuestions) * 100) : 0;
+  const competenceProgress = getCurrentCompetenceProgress(session.progress || [], currentQuestion?.subSubThemeId);
+  const levelProgress = getAdaptiveLevelProgress(currentQuestion?.progressItem);
 
   if (loadingQ) {
     return (
@@ -315,20 +349,39 @@ function TestRunner({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>{t("progression")}</span>
-            <span>{displayedQuestionNumber}/{totalQuestions || displayedQuestionNumber || 0}</span>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 space-y-3">
+          <div>
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>{t("progression")}</span>
+              <span>{competenceProgress.current}/{competenceProgress.total} {t("competences").toLowerCase()}</span>
+            </div>
+            <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80 shadow-inner">
+              <div
+                className="h-full rounded-full transition-all duration-500 ease-out shadow-sm"
+                style={{
+                  width: `${competenceProgress.percent}%`,
+                  background: `linear-gradient(90deg, ${primaryColor} 0%, #335fbe 65%, ${accentColor} 100%)`,
+                }}
+              />
+            </div>
           </div>
-          <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80 shadow-inner">
-            <div
-              className="h-full rounded-full transition-all duration-500 ease-out shadow-sm"
-              style={{
-                width: `${progressPct}%`,
-                background: `linear-gradient(90deg, ${primaryColor} 0%, #335fbe 65%, ${accentColor} 100%)`,
-              }}
-            />
+          <div>
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>
+                {t("levelLabel")} : {levelProgress.currentLevel || "—"}
+              </span>
+              <span>{levelProgress.correct}/{levelProgress.total}</span>
+            </div>
+            <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80 shadow-inner">
+              <div
+                className="h-full rounded-full transition-all duration-500 ease-out"
+                style={{
+                  width: `${levelProgress.percent}%`,
+                  background: `linear-gradient(90deg, ${accentColor} 0%, #f4b42b 100%)`,
+                }}
+              />
+            </div>
           </div>
         </div>
         {timeLeft !== null && (
@@ -908,35 +961,59 @@ export default function ParticipantTests() {
                 {inProgress.length === 0 ? (
                   <p className="text-sm text-gray-400 italic px-2">{t("noTestsInProgress")}</p>
                 ) : (
-                  inProgress.map(a => {
-                     const hasSession = a.session && a.session.status === "IN_PROGRESS";
-                    const questionProgress = getQuestionProgress(
-                      a.test?.competences || [],
+                    inProgress.map(a => {
+                      const hasSession = a.session && a.session.status === "IN_PROGRESS";
+                    const pendingProgressItem = a.session?.progress?.find((item) => !item.completed);
+                    const competenceProgress = getCurrentCompetenceProgress(
                       a.session?.progress || [],
-                      false
+                      pendingProgressItem?.subSubThemeId
                     );
-                     return (
+                    const levelProgress = getAdaptiveLevelProgress(pendingProgressItem ? {
+                      questionsAsked: pendingProgressItem.questionsAsked,
+                      currentLevel: pendingProgressItem.currentLevel,
+                      levelQuestionsAsked: (pendingProgressItem as any).levelQuestionsAsked,
+                      levelCorrectCount: (pendingProgressItem as any).levelCorrectCount,
+                      completed: pendingProgressItem.completed,
+                    } : undefined);
+                      return (
                         <div key={a.id} className="bg-white border border-amber-200 rounded-xl p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1">
                               <p className="font-medium text-gray-800">{a.test.name}</p>
-                            {hasSession && questionProgress.total > 0 && (
-                               <div className="mt-2">
-                                 <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                   <span>{t("progression")}</span>
-                                  <span>{questionProgress.answered}/{questionProgress.total}</span>
+                            {hasSession && competenceProgress.total > 0 && (
+                               <div className="mt-2 space-y-2">
+                                 <div>
+                                   <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                     <span>{t("progression")}</span>
+                                     <span>{competenceProgress.current}/{competenceProgress.total} {t("competences").toLowerCase()}</span>
+                                   </div>
+                                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80 shadow-inner">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-500 ease-out shadow-sm"
+                                      style={{
+                                        width: `${competenceProgress.percent}%`,
+                                        background: `linear-gradient(90deg, ${primaryColor} 0%, #335fbe 65%, ${accentColor} 100%)`,
+                                      }}
+                                    />
+                                   </div>
                                  </div>
-                                <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80 shadow-inner">
-                                  <div
-                                    className="h-full rounded-full transition-all duration-500 ease-out shadow-sm"
-                                    style={{
-                                      width: `${questionProgress.percent}%`,
-                                      background: `linear-gradient(90deg, ${primaryColor} 0%, #335fbe 65%, ${accentColor} 100%)`,
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            )}
+                                 <div>
+                                   <div className="flex justify-between text-[11px] text-gray-400 mb-1">
+                                     <span>{t("levelLabel")} : {levelProgress.currentLevel || "—"}</span>
+                                     <span>{levelProgress.correct}/{levelProgress.total}</span>
+                                   </div>
+                                  <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80 shadow-inner">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-500 ease-out"
+                                      style={{
+                                        width: `${levelProgress.percent}%`,
+                                        background: `linear-gradient(90deg, ${accentColor} 0%, #f4b42b 100%)`,
+                                      }}
+                                    />
+                                   </div>
+                                 </div>
+                               </div>
+                             )}
                             {a.session?.timeRemaining !== null && a.session?.timeRemaining !== undefined && (
                               <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                                 <Clock size={10} /> {t("timeRemainingSaved")}

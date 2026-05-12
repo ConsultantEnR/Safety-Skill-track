@@ -165,11 +165,6 @@ export default function ParticipantSidebar({
       {/* Bas : déconnexion + toggle */}
       <div className="border-t border-white/10 p-2 space-y-1">
         {collapsed ? (
-          <div className="flex justify-center pb-1">
-            <LanguageSwitcher compact dark className="text-white/80" />
-          </div>
-        ) : null}
-        {collapsed ? (
           <NavTooltip label={t("logout")}>
             <button onClick={handleLogout} aria-label={t("logout")}
               className="flex items-center justify-center w-full py-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
@@ -188,6 +183,11 @@ export default function ParticipantSidebar({
           className="flex items-center justify-center w-full py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors">
           {collapsed ? <ChevronRight size={20} /> : <><ChevronLeft size={20} /><span className="ml-2 text-xs text-white/60">{t("collapse")}</span></>}
         </button>
+        {collapsed ? (
+          <div className="flex justify-center pt-1">
+            <LanguageSwitcher compact dark className="text-white/80" />
+          </div>
+        ) : null}
         {!collapsed && (
           <div className="flex justify-center pt-1">
             <LanguageSwitcher dark className="text-white/70" />
