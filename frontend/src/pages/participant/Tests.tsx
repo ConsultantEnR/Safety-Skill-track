@@ -80,16 +80,29 @@ function getEffectiveLevel(progress: SessionProgress) {
 }
 
 function getTotalQuestionCount(competences: any[]): number {
-  const uniqueCompetences = new Map<number, number>();
-
-  for (const competence of competences || []) {
+  const levelCount = (competences || []).filter((competence) => {
     const subSubThemeId = Number(competence?.subSubThemeId);
-    if (!Number.isFinite(subSubThemeId) || subSubThemeId <= 0) continue;
-    const plannedCount = Number(competence?.questionCount) || 2;
-    uniqueCompetences.set(subSubThemeId, plannedCount);
-  }
+    return Number.isFinite(subSubThemeId) && subSubThemeId > 0;
+  }).length;
 
-  return Array.from(uniqueCompetences.values()).reduce((sum, count) => sum + count, 0);
+  return levelCount * 2;
+}
+
+function getAnsweredQuestionCount(progress: SessionProgress[]): number {
+  return (progress || []).reduce((sum, item) => sum + Math.max(0, item.questionsAsked || 0), 0);
+}
+
+function getQuestionProgress(
+  competences: any[],
+  progress: SessionProgress[],
+  hasCurrentQuestion = false
+) {
+  const total = getTotalQuestionCount(competences);
+  const answered = Math.min(total, getAnsweredQuestionCount(progress));
+  const current = hasCurrentQuestion ? Math.min(total, answered + 1) : answered;
+  const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+
+  return { total, answered, current, percent };
 }
 
 function formatTime(secs: number): string {
@@ -125,7 +138,7 @@ function TestRunner({
   const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(session.timeRemaining ?? null);
   const [answeredQuestionsCount, setAnsweredQuestionsCount] = useState(
-    (session.progress || []).reduce((sum, progress) => sum + (progress.questionsAsked || 0), 0)
+    getAnsweredQuestionCount(session.progress || [])
   );
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -236,7 +249,7 @@ function TestRunner({
 
   const totalQuestions = getTotalQuestionCount(assignment.test.competences || []);
   const displayedQuestionNumber = currentQuestion?.done
-    ? answeredQuestionsCount
+    ? Math.min(totalQuestions, answeredQuestionsCount)
     : Math.min(totalQuestions, answeredQuestionsCount + (currentQuestion?.question ? 1 : 0));
   const progressPct = totalQuestions > 0 ? Math.round((displayedQuestionNumber / totalQuestions) * 100) : 0;
 
@@ -308,9 +321,14 @@ function TestRunner({
             <span>{t("progression")}</span>
             <span>{displayedQuestionNumber}/{totalQuestions || displayedQuestionNumber || 0}</span>
           </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%`, backgroundColor: accentColor }} />
+          <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80 shadow-inner">
+            <div
+              className="h-full rounded-full transition-all duration-500 ease-out shadow-sm"
+              style={{
+                width: `${progressPct}%`,
+                background: `linear-gradient(90deg, ${primaryColor} 0%, #335fbe 65%, ${accentColor} 100%)`,
+              }}
+            />
           </div>
         </div>
         {timeLeft !== null && (
@@ -891,23 +909,31 @@ export default function ParticipantTests() {
                   <p className="text-sm text-gray-400 italic px-2">{t("noTestsInProgress")}</p>
                 ) : (
                   inProgress.map(a => {
-                    const hasSession = a.session && a.session.status === "IN_PROGRESS";
-                    const totalComps = a.session?.progress?.length || 0;
-                    const doneComps = a.session?.progress?.filter(p => p.completed).length || 0;
-                    return (
-                      <div key={a.id} className="bg-white border border-amber-200 rounded-xl p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-800">{a.test.name}</p>
-                            {hasSession && totalComps > 0 && (
-                              <div className="mt-2">
-                                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                  <span>{t("progression")}</span>
-                                  <span>{doneComps}/{totalComps} {t("competences").toLowerCase()}</span>
-                                </div>
-                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full transition-all"
-                                    style={{ width: `${(doneComps / totalComps) * 100}%`, backgroundColor: accentColor }} />
+                     const hasSession = a.session && a.session.status === "IN_PROGRESS";
+                    const questionProgress = getQuestionProgress(
+                      a.test?.competences || [],
+                      a.session?.progress || [],
+                      false
+                    );
+                     return (
+                        <div key={a.id} className="bg-white border border-amber-200 rounded-xl p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-800">{a.test.name}</p>
+                            {hasSession && questionProgress.total > 0 && (
+                               <div className="mt-2">
+                                 <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                   <span>{t("progression")}</span>
+                                  <span>{questionProgress.answered}/{questionProgress.total}</span>
+                                 </div>
+                                <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80 shadow-inner">
+                                  <div
+                                    className="h-full rounded-full transition-all duration-500 ease-out shadow-sm"
+                                    style={{
+                                      width: `${questionProgress.percent}%`,
+                                      background: `linear-gradient(90deg, ${primaryColor} 0%, #335fbe 65%, ${accentColor} 100%)`,
+                                    }}
+                                  />
                                 </div>
                               </div>
                             )}
