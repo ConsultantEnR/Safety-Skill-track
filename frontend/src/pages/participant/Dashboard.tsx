@@ -31,6 +31,7 @@ interface Session {
   status: string;
   timeRemaining: number | null;
   progress: SessionProgress[];
+  completedAt?: string | null;
 }
 
 interface TestAssignment {
@@ -48,11 +49,26 @@ interface Profile {
   client: { name: string; primaryColor: string; accentColor: string; logoUrl: string | null; };
 }
 
+interface RadarDatum {
+  label: string;
+  score: number;
+  levelLabel: string;
+  takenAtLabel: string;
+  testName: string;
+}
+
 // Graphique radar SVG simple
-function RadarChart({ labels, values, maxValue, primaryColor, accentColor }: {
-  labels: string[]; values: number[]; maxValue: number;
+function RadarChart({ data, maxValue, primaryColor, accentColor }: {
+  data: RadarDatum[]; maxValue: number;
   primaryColor: string; accentColor: string;
 }) {
+  const [hoveredPoint, setHoveredPoint] = useState<{
+    datum: RadarDatum;
+    x: number;
+    y: number;
+  } | null>(null);
+  const labels = data.map((item) => item.label);
+  const values = data.map((item) => item.score);
   const n = labels.length;
   if (n < 3) return null;
   const cx = 160, cy = 160, r = 120;
@@ -63,38 +79,70 @@ function RadarChart({ labels, values, maxValue, primaryColor, accentColor }: {
   };
   const gridLevels = [0.25, 0.5, 0.75, 1.0];
   return (
-    <svg viewBox="0 0 320 320" className="w-full max-w-xs mx-auto">
-      {/* Grille */}
-      {gridLevels.map(lvl => {
-        const pts = Array.from({ length: n }, (_, i) => getPoint(i, r * lvl));
-        return <polygon key={lvl} points={pts.map(p => `${p.x},${p.y}`).join(" ")}
-          fill="none" stroke="#e5e7eb" strokeWidth="1" />;
-      })}
-      {/* Axes */}
-      {Array.from({ length: n }, (_, i) => {
-        const outer = getPoint(i, r);
-        return <line key={i} x1={cx} y1={cy} x2={outer.x} y2={outer.y} stroke="#e5e7eb" strokeWidth="1" />;
-      })}
-      {/* Zone des valeurs */}
-      {(() => {
-        const pts = values.map((v, i) => getPoint(i, r * Math.min(1, (v / maxValue))));
-        return <polygon points={pts.map(p => `${p.x},${p.y}`).join(" ")}
-          fill={accentColor + "55"} stroke={accentColor} strokeWidth="2" />;
-      })()}
-      {/* Points */}
-      {values.map((v, i) => {
-        const pt = getPoint(i, r * Math.min(1, (v / maxValue)));
-        return <circle key={i} cx={pt.x} cy={pt.y} r="4" fill={primaryColor} />;
-      })}
-      {/* Labels */}
-      {labels.map((label, i) => {
-        const pt = getPoint(i, r + 20);
-        return <text key={i} x={pt.x} y={pt.y} textAnchor="middle" dominantBaseline="middle"
-          fontSize="9" fill="#374151" className="font-sans">
-          {label.length > 12 ? label.substring(0, 12) + "…" : label}
-        </text>;
-      })}
-    </svg>
+    <div className="relative w-full max-w-xs mx-auto">
+      <svg viewBox="0 0 320 320" className="w-full">
+        {/* Grille */}
+        {gridLevels.map(lvl => {
+          const pts = Array.from({ length: n }, (_, i) => getPoint(i, r * lvl));
+          return <polygon key={lvl} points={pts.map(p => `${p.x},${p.y}`).join(" ")}
+            fill="none" stroke="#e5e7eb" strokeWidth="1" />;
+        })}
+        {/* Axes */}
+        {Array.from({ length: n }, (_, i) => {
+          const outer = getPoint(i, r);
+          return <line key={i} x1={cx} y1={cy} x2={outer.x} y2={outer.y} stroke="#e5e7eb" strokeWidth="1" />;
+        })}
+        {/* Zone des valeurs */}
+        {(() => {
+          const pts = values.map((v, i) => getPoint(i, r * Math.min(1, (v / maxValue))));
+          return <polygon points={pts.map(p => `${p.x},${p.y}`).join(" ")}
+            fill={accentColor + "55"} stroke={accentColor} strokeWidth="2" />;
+        })()}
+        {/* Points */}
+        {values.map((v, i) => {
+          const pt = getPoint(i, r * Math.min(1, (v / maxValue)));
+          return (
+            <g
+              key={i}
+              onMouseEnter={() => setHoveredPoint({ datum: data[i], x: pt.x, y: pt.y })}
+              onMouseLeave={() => setHoveredPoint(null)}
+            >
+              <circle cx={pt.x} cy={pt.y} r="10" fill="transparent" className="cursor-pointer" />
+              <circle cx={pt.x} cy={pt.y} r="4" fill={primaryColor} className="pointer-events-none" />
+            </g>
+          );
+        })}
+        {/* Labels */}
+        {labels.map((label, i) => {
+          const pt = getPoint(i, r + 20);
+          return <text key={i} x={pt.x} y={pt.y} textAnchor="middle" dominantBaseline="middle"
+            fontSize="9" fill="#374151" className="font-sans">
+            {label.length > 12 ? label.substring(0, 12) + "…" : label}
+          </text>;
+        })}
+      </svg>
+      {hoveredPoint && (
+        <div
+          className="absolute z-10 min-w-[180px] rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-left shadow-lg backdrop-blur"
+          style={{
+            left: `${Math.min(78, Math.max(6, (hoveredPoint.x / 320) * 100 + 4))}%`,
+            top: `${Math.min(78, Math.max(4, (hoveredPoint.y / 320) * 100 - 6))}%`,
+            transform: "translate(-50%, -100%)",
+          }}
+        >
+          <p className="text-xs font-semibold text-slate-800">{hoveredPoint.datum.label}</p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Niveau : <span className="font-medium text-slate-700">{hoveredPoint.datum.levelLabel}</span>
+          </p>
+          <p className="text-[11px] text-slate-500">
+            Test : <span className="font-medium text-slate-700">{hoveredPoint.datum.testName}</span>
+          </p>
+          <p className="text-[11px] text-slate-500">
+            Passé le : <span className="font-medium text-slate-700">{hoveredPoint.datum.takenAtLabel}</span>
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -104,7 +152,7 @@ const LEVEL_SCORE: Record<string, number> = {
 
 export default function ParticipantDashboard() {
   const { accessToken, user } = useAuth();
-  const { t } = useI18n(); // ITER9
+  const { t, lang } = useI18n(); // ITER9
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -146,13 +194,26 @@ export default function ParticipantDashboard() {
   const completedTests = assignments.filter(a => a.status === "COMPLETED");
 
   // ITER12: Données radar avec noms réels des sous-thèmes 2
-  const radarData: { label: string; score: number }[] = [];
+  const levelLabel: Record<string, string> = {
+    FONDAMENTAL: t("levelFondamental"),
+    BASIQUE: t("levelBasique"),
+    INTERMEDIAIRE: t("levelIntermediaire"),
+    AVANCE: t("levelAvance"),
+    COMPLET: t("levelComplet"),
+  };
+  const radarData: RadarDatum[] = [];
   for (const a of completedTests) {
     if (a.session?.progress) {
       for (const p of a.session.progress) {
+        const effectiveLevel = getEffectiveLevel(p) || p.currentLevel;
         radarData.push({
           label: p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`,
-          score: LEVEL_SCORE[p.levelReached || p.currentLevel] || 1,
+          score: LEVEL_SCORE[effectiveLevel] || 1,
+          levelLabel: levelLabel[effectiveLevel] || effectiveLevel,
+          takenAtLabel: a.session?.completedAt
+            ? new Date(a.session.completedAt).toLocaleDateString(lang === "en" ? "en-GB" : "fr-FR")
+            : "—",
+          testName: a.test.name,
         });
       }
     }
@@ -220,8 +281,7 @@ export default function ParticipantDashboard() {
             <h2 className="text-base font-semibold text-gray-800 mb-4">{t("mySkillAreas")}</h2>
             {radarData.length >= 3 ? (
               <RadarChart
-                labels={radarData.map(d => d.label)}
-                values={radarData.map(d => d.score)}
+                data={radarData}
                 maxValue={5}
                 primaryColor={primaryColor}
                 accentColor={accentColor}
