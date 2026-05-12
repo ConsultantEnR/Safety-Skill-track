@@ -19,11 +19,23 @@ interface SessionProgress {
   levelReached?: string;      // ITER10
   pointsEarned?: number;      // ITER10
   maxPoints?: number;         // ITER10
+  expectedMaxPoints?: number | null;
   subSubThemeLabel?: string;  // ITER12: enriched by backend
 }
 
+const LEVEL_SCORE: Record<string, number> = {
+  FONDAMENTAL: 1, BASIQUE: 2, INTERMEDIAIRE: 3, AVANCE: 4, COMPLET: 5,
+};
+
 function getEffectiveLevel(progress: SessionProgress) {
   return progress.levelReached || (progress.correctCount > 0 ? progress.currentLevel : null);
+}
+
+function meetsExpectedLevel(progress: SessionProgress, expectedLevel: string | null | undefined) {
+  const effectiveLevel = getEffectiveLevel(progress);
+  if (!expectedLevel) return Boolean(effectiveLevel);
+  if (!effectiveLevel) return false;
+  return (LEVEL_SCORE[effectiveLevel] || 0) >= (LEVEL_SCORE[expectedLevel] || 0);
 }
 
 interface Session {
@@ -166,10 +178,6 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
     </div>
   );
 }
-
-const LEVEL_SCORE: Record<string, number> = {
-  FONDAMENTAL: 1, BASIQUE: 2, INTERMEDIAIRE: 3, AVANCE: 4, COMPLET: 5,
-};
 
 function getExpectedLevelForSubSubTheme(competences: any[], subSubThemeId: number) {
   return (competences || [])
@@ -437,6 +445,7 @@ export default function ParticipantDashboard() {
                       };
                       const effectiveLevel = getEffectiveLevel(p);
                       const expectedLevel = getExpectedLevelForSubSubTheme(a.test.competences || [], p.subSubThemeId);
+                      const isSuccessful = meetsExpectedLevel(p, expectedLevel);
                       const displayLevel = effectiveLevel ? (levelLabel[effectiveLevel] || effectiveLevel) : "À retravailler";
                       const displayExpectedLevel = expectedLevel ? (levelLabel[expectedLevel] || expectedLevel) : "—";
                       const domainName = p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`;
@@ -448,13 +457,13 @@ export default function ParticipantDashboard() {
                             <span>{t("expectedLevelLabel")} : <strong>{displayExpectedLevel}</strong></span>
                             <span>{t("levelReached")} : <strong>{displayLevel}</strong></span>
                           </div>
-                          {(p.maxPoints ?? 0) > 0 && (
+                          {((p.expectedMaxPoints ?? p.maxPoints ?? 0) > 0) && (
                             <span className="mx-2 text-xs text-gray-500">
-                              {p.pointsEarned ?? 0}/{p.maxPoints} pts
+                              {p.pointsEarned ?? 0}/{p.expectedMaxPoints ?? p.maxPoints} pts
                             </span>
                           )}
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${effectiveLevel ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                            {effectiveLevel ? t("passed") : t("failed")}
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isSuccessful ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                            {isSuccessful ? t("passed") : t("failed")}
                           </span>
                         </div>
                       );

@@ -35,6 +35,10 @@ const LEVEL_RANK: Record<string, number> = {
   AVANCE: 4,
   COMPLET: 5,
 };
+function levelsUpTo(level: string): string[] {
+  const idx = LEVEL_ORDER.indexOf(level);
+  return idx >= 0 ? LEVEL_ORDER.slice(0, idx + 1) : ["FONDAMENTAL"];
+}
 const QUESTION_SELECT = {
   id: true,
   text: true,
@@ -281,6 +285,57 @@ router.get("/tests", authenticate, requireRole("EMPLOYEE"), async (req, res, nex
     const sstMap: Record<number, string> = {};
     for (const sst of subSubThemes) sstMap[sst.id] = sst.label;
 
+    const expectedPairs = new Map<string, string>();
+    const neededQuestionLevels = new Set<string>();
+    for (const assignment of assignments) {
+      for (const competence of assignment.test.competences || []) {
+        const subSubThemeId = Number(competence?.subSubThemeId);
+        const expectedLevel = String(competence?.expectedLevel || "");
+        if (!Number.isFinite(subSubThemeId) || subSubThemeId <= 0 || !expectedLevel) continue;
+        const pairKey = `${subSubThemeId}:${expectedLevel}`;
+        expectedPairs.set(pairKey, expectedLevel);
+        for (const level of levelsUpTo(expectedLevel)) neededQuestionLevels.add(level);
+      }
+    }
+
+    const expectedQuestionRows = expectedPairs.size > 0
+      ? await prisma.question.findMany({
+          where: {
+            subSubThemeId: { in: Array.from(new Set(Array.from(expectedPairs.keys()).map((key) => Number(key.split(":")[0])))) },
+            level: { in: Array.from(neededQuestionLevels) as any[] },
+          },
+          select: {
+            subSubThemeId: true,
+            level: true,
+            customScore: true,
+          },
+        })
+      : [];
+
+    const pointsBySstAndLevel = new Map<string, number[]>();
+    for (const row of expectedQuestionRows) {
+      const key = `${row.subSubThemeId}:${row.level}`;
+      const pts = row.customScore ?? levelPoints(String(row.level));
+      const current = pointsBySstAndLevel.get(key) || [];
+      current.push(pts);
+      pointsBySstAndLevel.set(key, current);
+    }
+
+    const expectedMaxPointsByPair = new Map<string, number>();
+    for (const [pairKey, expectedLevel] of expectedPairs.entries()) {
+      const [subSubThemeIdText] = pairKey.split(":");
+      const subSubThemeId = Number(subSubThemeIdText);
+      const total = levelsUpTo(expectedLevel).reduce((sum, level) => {
+        const levelPts = (pointsBySstAndLevel.get(`${subSubThemeId}:${level}`) || [])
+          .sort((a, b) => b - a)
+          .slice(0, 2);
+        if (levelPts.length === 0) return sum + (levelPoints(level) * 2);
+        if (levelPts.length === 1) return sum + (levelPts[0] * 2);
+        return sum + levelPts[0] + levelPts[1];
+      }, 0);
+      expectedMaxPointsByPair.set(pairKey, total);
+    }
+
     // Include pending retake request for COMPLETED assignments
     const completedTestIds = view === "tests"
       ? assignments.filter(a => a.status === "COMPLETED").map(a => a.testId)
@@ -307,6 +362,7 @@ router.get("/tests", authenticate, requireRole("EMPLOYEE"), async (req, res, nex
           progress: s.progress.map(p => ({
             ...p,
             subSubThemeLabel: sstMap[p.subSubThemeId] || null,
+            expectedMaxPoints: expectedMaxPointsByPair.get(`${p.subSubThemeId}:${getMaxLevelForSST(a.test.competences, p.subSubThemeId)}`) ?? null,
           })),
         })),
       },

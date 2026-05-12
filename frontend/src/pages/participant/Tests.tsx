@@ -20,6 +20,7 @@ interface SessionProgress {
   levelReached?: string;
   pointsEarned?: number;
   maxPoints?: number;
+  expectedMaxPoints?: number | null;
 }
 
 interface Session {
@@ -85,10 +86,36 @@ function getEffectiveLevel(progress: SessionProgress) {
   return progress.levelReached || (progress.correctCount > 0 ? progress.currentLevel : null);
 }
 
+const LEVEL_SCORE: Record<string, number> = {
+  FONDAMENTAL: 1, BASIQUE: 2, INTERMEDIAIRE: 3, AVANCE: 4, COMPLET: 5,
+};
+
+function getExpectedLevelForSubSubTheme(competences: any[], subSubThemeId: number) {
+  return (competences || [])
+    .filter((competence) => Number(competence?.subSubThemeId) === subSubThemeId)
+    .reduce((maxLevel: string | null, competence: any) => {
+      const expectedLevel = String(competence?.expectedLevel || "");
+      if (!expectedLevel) return maxLevel;
+      if (!maxLevel) return expectedLevel;
+      return (LEVEL_SCORE[expectedLevel] || 0) > (LEVEL_SCORE[maxLevel] || 0) ? expectedLevel : maxLevel;
+    }, null);
+}
+
+function meetsExpectedLevel(progress: SessionProgress, expectedLevel: string | null | undefined) {
+  const effectiveLevel = getEffectiveLevel(progress);
+  if (!expectedLevel) return Boolean(effectiveLevel);
+  if (!effectiveLevel) return false;
+  return (LEVEL_SCORE[effectiveLevel] || 0) >= (LEVEL_SCORE[expectedLevel] || 0);
+}
+
 function getSessionScore(progress: SessionProgress[]): number {
   const items = progress || [];
   const total = items.length;
   if (total === 0) return 0;
+
+  const totalEarned = items.reduce((sum, item) => sum + (item.pointsEarned ?? 0), 0);
+  const totalExpected = items.reduce((sum, item) => sum + (item.expectedMaxPoints ?? item.maxPoints ?? 0), 0);
+  if (totalExpected > 0) return Math.round((totalEarned / totalExpected) * 100);
 
   return Math.round(
     items.reduce((sum, item) => (
@@ -552,17 +579,21 @@ function TestRunner({
 }
 
 function SessionResults({
+  assignment,
   session,
   primaryColor,
   accentColor,
 }: {
+  assignment: TestAssignment;
   session: Session;
   primaryColor: string;
   accentColor: string;
 }) {
   const { t } = useI18n();
   const total = (session?.progress || []).length;
-  const validated = (session?.progress || []).filter(p => Boolean(getEffectiveLevel(p))).length;
+  const validated = (session?.progress || []).filter((p) => (
+    meetsExpectedLevel(p, getExpectedLevelForSubSubTheme(assignment.test.competences || [], p.subSubThemeId))
+  )).length;
   const score = getSessionScore(session?.progress || []);
   return (
     <div className="space-y-4">
@@ -586,9 +617,13 @@ function SessionResults({
       <div className="mt-4 space-y-2">
         <h4 className="text-sm font-semibold text-gray-700">{t("scoreBySkillArea")}</h4>
         {(session?.progress || []).map(prog => {
-          const scoreP = prog.questionsAsked > 0
-            ? Math.round((prog.correctCount / prog.questionsAsked) * 100)
-            : 0;
+          const expectedLevel = getExpectedLevelForSubSubTheme(assignment.test.competences || [], prog.subSubThemeId);
+          const isSuccessful = meetsExpectedLevel(prog, expectedLevel);
+          const scoreP = (prog.expectedMaxPoints ?? prog.maxPoints ?? 0) > 0
+            ? Math.round(((prog.pointsEarned ?? 0) / (prog.expectedMaxPoints ?? prog.maxPoints ?? 1)) * 100)
+            : (prog.questionsAsked > 0
+                ? Math.round((prog.correctCount / prog.questionsAsked) * 100)
+                : 0);
           return (
             <div key={prog.id} className="flex items-center gap-3 text-sm">
               <span className="flex-1 text-gray-600 text-xs">
@@ -604,13 +639,13 @@ function SessionResults({
                   style={{ width: `${scoreP}%`, backgroundColor: scoreP >= 70 ? "#22c55e" : "#f59e0b" }} />
               </div>
               <span className="text-xs text-gray-500 w-10 text-right">{scoreP}%</span>
-              {(prog.maxPoints ?? 0) > 0 && (
+              {((prog.expectedMaxPoints ?? prog.maxPoints ?? 0) > 0) && (
                 <span className="text-xs text-gray-400">
-                  ({prog.pointsEarned ?? 0}/{prog.maxPoints} pts)
+                  ({prog.pointsEarned ?? 0}/{prog.expectedMaxPoints ?? prog.maxPoints} pts)
                 </span>
               )}
-              <span className={`text-xs font-semibold ${getEffectiveLevel(prog) ? "text-green-600" : "text-red-500"}`}>
-                {getEffectiveLevel(prog) ? t("passed") : t("failed")}
+              <span className={`text-xs font-semibold ${isSuccessful ? "text-green-600" : "text-red-500"}`}>
+                {isSuccessful ? t("passed") : t("failed")}
               </span>
               {getEffectiveLevel(prog) && (
                 <span className="text-xs px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
@@ -623,26 +658,30 @@ function SessionResults({
       </div>
 
       <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-        {session.progress.map((p) => (
-          <div key={p.id} className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm text-gray-700">
-              {p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`}
-              {getEffectiveLevel(p) && (
-                <span className="ml-1 text-xs text-gray-400">
-                  · {String(getEffectiveLevel(p)).charAt(0) + String(getEffectiveLevel(p)).slice(1).toLowerCase()}
-                </span>
-              )}
-            </span>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="text-gray-500">{p.correctCount}/{p.questionsAsked} {t("correctAnswersLabel")}</span>
-              <span className={`px-2 py-0.5 rounded-full font-medium ${
-                getEffectiveLevel(p) ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
-              }`}>
-                {getEffectiveLevel(p) ? t("passed") : t("failed")}
+        {session.progress.map((p) => {
+          const expectedLevel = getExpectedLevelForSubSubTheme(assignment.test.competences || [], p.subSubThemeId);
+          const isSuccessful = meetsExpectedLevel(p, expectedLevel);
+          return (
+            <div key={p.id} className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm text-gray-700">
+                {p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`}
+                {getEffectiveLevel(p) && (
+                  <span className="ml-1 text-xs text-gray-400">
+                    · {String(getEffectiveLevel(p)).charAt(0) + String(getEffectiveLevel(p)).slice(1).toLowerCase()}
+                  </span>
+                )}
               </span>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-gray-500">{p.correctCount}/{p.questionsAsked} {t("correctAnswersLabel")}</span>
+                <span className={`px-2 py-0.5 rounded-full font-medium ${
+                  isSuccessful ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+                }`}>
+                  {isSuccessful ? t("passed") : t("failed")}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -902,6 +941,7 @@ export default function ParticipantTests() {
               </div>
               <div className="flex-1 overflow-y-auto p-5">
                 <SessionResults
+                  assignment={viewingResult.assignment}
                   session={viewingResult.session}
                   primaryColor={primaryColor}
                   accentColor={accentColor}
@@ -1057,7 +1097,9 @@ export default function ParticipantTests() {
                 ) : (
                   done.map(a => {
                     const totalComps = a.session?.progress?.length || 0;
-                    const passedComps = a.session?.progress?.filter(p => Boolean(getEffectiveLevel(p))).length || 0;
+                    const passedComps = a.session?.progress?.filter((p) => (
+                      meetsExpectedLevel(p, getExpectedLevelForSubSubTheme(a.test.competences || [], p.subSubThemeId))
+                    )).length || 0;
                     const score = getSessionScore(a.session?.progress || []);
                     return (
                       <div key={a.id} className="bg-white border border-green-100 rounded-xl p-4 flex items-center justify-between">
