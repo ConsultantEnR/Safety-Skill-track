@@ -140,6 +140,7 @@ export default function SuperAdminDashboard() {
             icon={<Users size={28} />}
             iconBg={`${branding.accentColor}30`}
             iconColor={branding.primaryColor}
+            onClick={() => navigate("/super-admin/clients")}
           />
 
           {/* ITER9: Card 3 — Tests assignés */}
