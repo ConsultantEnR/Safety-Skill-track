@@ -184,6 +184,7 @@ router.get("/tests", authenticate, requireRole("EMPLOYEE"), async (req, res, nex
                 competences: {
                   select: {
                     subSubThemeId: true,
+                    expectedLevel: true,
                   },
                 },
                 sessions: {
