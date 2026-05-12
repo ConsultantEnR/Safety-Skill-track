@@ -426,7 +426,7 @@ export default function AdminDashboard() {
             {/* Row 3: Sub-theme 2 detail */}
             {data.subSubThemeData.length > 0 && (
               <ScoreBar data={data.subSubThemeData} color={branding.primaryColor}
-                title={`${t("subTheme2")} — ${t("scoresByTheme")}`} accentColor={branding.accentColor} />
+                title={`${t("subTheme2")} - scores`} accentColor={branding.accentColor} />
             )}
           </div>
         )}
