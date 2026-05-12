@@ -52,7 +52,9 @@ interface Profile {
 interface RadarDatum {
   label: string;
   score: number;
+  expectedScore: number;
   levelLabel: string;
+  expectedLevelLabel: string;
   takenAtLabel: string;
   testName: string;
 }
@@ -69,9 +71,10 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
   } | null>(null);
   const labels = data.map((item) => item.label);
   const values = data.map((item) => item.score);
+  const expectedValues = data.map((item) => item.expectedScore);
   const n = labels.length;
   if (n < 3) return null;
-  const cx = 160, cy = 160, r = 120;
+  const cx = 190, cy = 190, r = 145;
   const angleStep = (2 * Math.PI) / n;
   const getPoint = (idx: number, radius: number) => {
     const angle = idx * angleStep - Math.PI / 2;
@@ -79,8 +82,8 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
   };
   const gridLevels = [0.25, 0.5, 0.75, 1.0];
   return (
-    <div className="relative w-full max-w-xs mx-auto">
-      <svg viewBox="0 0 320 320" className="w-full">
+    <div className="relative w-full max-w-[27rem] mx-auto">
+      <svg viewBox="0 0 380 380" className="w-full">
         {/* Grille */}
         {gridLevels.map(lvl => {
           const pts = Array.from({ length: n }, (_, i) => getPoint(i, r * lvl));
@@ -92,7 +95,13 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
           const outer = getPoint(i, r);
           return <line key={i} x1={cx} y1={cy} x2={outer.x} y2={outer.y} stroke="#e5e7eb" strokeWidth="1" />;
         })}
-        {/* Zone des valeurs */}
+        {/* Zone du niveau attendu */}
+        {(() => {
+          const pts = expectedValues.map((v, i) => getPoint(i, r * Math.min(1, (v / maxValue))));
+          return <polygon points={pts.map(p => `${p.x},${p.y}`).join(" ")}
+            fill={primaryColor + "24"} stroke={primaryColor + "A6"} strokeWidth="2" strokeDasharray="5 4" />;
+        })()}
+        {/* Zone des valeurs atteintes */}
         {(() => {
           const pts = values.map((v, i) => getPoint(i, r * Math.min(1, (v / maxValue))));
           return <polygon points={pts.map(p => `${p.x},${p.y}`).join(" ")}
@@ -135,6 +144,9 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
             Niveau : <span className="font-medium text-slate-700">{hoveredPoint.datum.levelLabel}</span>
           </p>
           <p className="text-[11px] text-slate-500">
+            Niveau attendu : <span className="font-medium text-slate-700">{hoveredPoint.datum.expectedLevelLabel}</span>
+          </p>
+          <p className="text-[11px] text-slate-500">
             Test : <span className="font-medium text-slate-700">{hoveredPoint.datum.testName}</span>
           </p>
           <p className="text-[11px] text-slate-500">
@@ -149,6 +161,17 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
 const LEVEL_SCORE: Record<string, number> = {
   FONDAMENTAL: 1, BASIQUE: 2, INTERMEDIAIRE: 3, AVANCE: 4, COMPLET: 5,
 };
+
+function getExpectedLevelForSubSubTheme(competences: any[], subSubThemeId: number) {
+  return (competences || [])
+    .filter((competence) => Number(competence?.subSubThemeId) === subSubThemeId)
+    .reduce((maxLevel: string | null, competence: any) => {
+      const expectedLevel = String(competence?.expectedLevel || "");
+      if (!expectedLevel) return maxLevel;
+      if (!maxLevel) return expectedLevel;
+      return (LEVEL_SCORE[expectedLevel] || 0) > (LEVEL_SCORE[maxLevel] || 0) ? expectedLevel : maxLevel;
+    }, null);
+}
 
 export default function ParticipantDashboard() {
   const { accessToken, user } = useAuth();
@@ -206,10 +229,13 @@ export default function ParticipantDashboard() {
     if (a.session?.progress) {
       for (const p of a.session.progress) {
         const effectiveLevel = getEffectiveLevel(p) || p.currentLevel;
+        const expectedLevel = getExpectedLevelForSubSubTheme(a.test.competences || [], p.subSubThemeId) || effectiveLevel;
         radarData.push({
           label: p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`,
           score: LEVEL_SCORE[effectiveLevel] || 1,
+          expectedScore: LEVEL_SCORE[expectedLevel] || 1,
           levelLabel: levelLabel[effectiveLevel] || effectiveLevel,
+          expectedLevelLabel: levelLabel[expectedLevel] || expectedLevel,
           takenAtLabel: a.session?.completedAt
             ? new Date(a.session.completedAt).toLocaleDateString(lang === "en" ? "en-GB" : "fr-FR")
             : "—",
@@ -280,12 +306,27 @@ export default function ParticipantDashboard() {
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-base font-semibold text-gray-800 mb-4">{t("mySkillAreas")}</h2>
             {radarData.length >= 3 ? (
-              <RadarChart
-                data={radarData}
-                maxValue={5}
-                primaryColor={primaryColor}
-                accentColor={accentColor}
-              />
+              <div className="space-y-3">
+                <RadarChart
+                  data={radarData}
+                  maxValue={5}
+                  primaryColor={primaryColor}
+                  accentColor={accentColor}
+                />
+                <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-500">
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block h-2.5 w-5 rounded-full" style={{ backgroundColor: accentColor }} />
+                    Niveau atteint
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-2.5 w-5 rounded-full border-2 border-dashed"
+                      style={{ backgroundColor: `${primaryColor}24`, borderColor: `${primaryColor}A6` }}
+                    />
+                    Niveau attendu
+                  </span>
+                </div>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <ClipboardList size={40} className="text-gray-300 mb-3" />
@@ -383,15 +424,18 @@ export default function ParticipantDashboard() {
                         AVANCE: t("levelAvance"), COMPLET: t("levelComplet"),
                       };
                       const effectiveLevel = getEffectiveLevel(p);
+                      const expectedLevel = getExpectedLevelForSubSubTheme(a.test.competences || [], p.subSubThemeId);
                       const displayLevel = effectiveLevel ? (levelLabel[effectiveLevel] || effectiveLevel) : "À retravailler";
+                      const displayExpectedLevel = expectedLevel ? (levelLabel[expectedLevel] || expectedLevel) : "—";
                       const domainName = p.subSubThemeLabel || `${t("competencyDomain")} ${p.subSubThemeId}`;
                       return (
                         <div key={p.subSubThemeId}
                           className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 text-sm">
                           <span className="font-medium text-gray-700 flex-1">{domainName}</span>
-                          <span className="mx-4 text-xs text-gray-500">
-                            {t("levelReached")} : <strong>{displayLevel}</strong>
-                          </span>
+                          <div className="mx-4 flex flex-col items-end text-xs text-gray-500">
+                            <span>{t("expectedLevelLabel")} : <strong>{displayExpectedLevel}</strong></span>
+                            <span>{t("levelReached")} : <strong>{displayLevel}</strong></span>
+                          </div>
                           {(p.maxPoints ?? 0) > 0 && (
                             <span className="mx-2 text-xs text-gray-500">
                               {p.pointsEarned ?? 0}/{p.maxPoints} pts
