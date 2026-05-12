@@ -156,18 +156,47 @@ router.get("/tests", authenticate, requireRole("EMPLOYEE"), async (req, res, nex
 
     const assignments = await prisma.testAssignment.findMany({
       where: { employeeId: employee.id },
-      include: {
+      select: {
+        id: true,
+        testId: true,
+        status: true,
+        deadline: true,
+        assignedAt: true,
         test: {
-          include: {
-            competences: true,
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            timerEnabled: true,
+            timerDuration: true,
+            competences: {
+              select: {
+                id: true,
+                testId: true,
+                subSubThemeId: true,
+                subThemeId: true,
+                questionCount: true,
+                expectedLevel: true,
+              },
+            },
             sessions: {
               where: { employeeId: employee.id },
-              include: { progress: true },
+              select: {
+                id: true,
+                status: true,
+                timeRemaining: true,
+                attemptNumber: true,
+                askedQuestionIds: true,
+                startedAt: true,
+                completedAt: true,
+                progress: true,
+              },
               orderBy: { startedAt: "desc" },
+              take: 1,
             },
           },
         },
-      },
+      }
     });
 
     // ITER12: Enrich progress with subSubTheme labels

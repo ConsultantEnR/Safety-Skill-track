@@ -299,8 +299,8 @@ const fr = {
   attemptN: "Tentative {{n}}",
   // ITER9: Admin Dashboard i18n
   activeEmployees: "Salariés actifs",
-  scoresByTheme: "Scores par thème",
-  themeDetails: "Détail par thème",
+  scoresByTheme: "Scores par famille",
+  themeDetails: "Détail par famille",
   exporting: "Export en cours...",
   comingSoon: "Disponible prochainement",
   // ITER9: Admin Messages i18n
