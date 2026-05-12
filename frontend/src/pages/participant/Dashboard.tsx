@@ -59,6 +59,11 @@ interface RadarDatum {
   testName: string;
 }
 
+const ACHIEVED_STROKE = "#2F5BD1";
+const ACHIEVED_FILL = "rgba(47, 91, 209, 0.18)";
+const EXPECTED_STROKE = "#F0A202";
+const EXPECTED_FILL = "rgba(240, 162, 2, 0.03)";
+
 // Graphique radar SVG simple
 function RadarChart({ data, maxValue, primaryColor, accentColor }: {
   data: RadarDatum[]; maxValue: number;
@@ -100,13 +105,13 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
         {(() => {
           const pts = expectedValues.map((v, i) => getPoint(i, r * Math.min(1, (v / maxValue))));
           return <polygon points={pts.map(p => `${p.x},${p.y}`).join(" ")}
-            fill={primaryColor + "12"} stroke={primaryColor} strokeWidth="2.5" strokeDasharray="6 5" />;
+            fill={EXPECTED_FILL} stroke={EXPECTED_STROKE} strokeWidth="1.5" strokeDasharray="5 5" opacity="0.38" />;
         })()}
         {/* Zone des valeurs atteintes */}
         {(() => {
           const pts = values.map((v, i) => getPoint(i, r * Math.min(1, (v / maxValue))));
           return <polygon points={pts.map(p => `${p.x},${p.y}`).join(" ")}
-            fill={accentColor + "14"} stroke={accentColor} strokeWidth="2" strokeDasharray="6 5" />;
+            fill={ACHIEVED_FILL} stroke={ACHIEVED_STROKE} strokeWidth="2.5" strokeDasharray="6 5" />;
         })()}
         {/* Points */}
         {values.map((v, i) => {
@@ -119,9 +124,9 @@ function RadarChart({ data, maxValue, primaryColor, accentColor }: {
               onMouseMove={() => setHoveredPoint({ datum: data[i], x: pt.x, y: pt.y })}
               onMouseLeave={() => setHoveredPoint(null)}
             >
-              <circle cx={expectedPt.x} cy={expectedPt.y} r="3.5" fill={primaryColor} className="pointer-events-none" opacity="0.9" />
+              <circle cx={expectedPt.x} cy={expectedPt.y} r="2.5" fill={EXPECTED_STROKE} className="pointer-events-none" opacity="0.45" />
               <circle cx={pt.x} cy={pt.y} r="14" fill="transparent" className="cursor-pointer" />
-              <circle cx={pt.x} cy={pt.y} r="4.5" fill={accentColor} className="pointer-events-none" />
+              <circle cx={pt.x} cy={pt.y} r="4.5" fill={ACHIEVED_STROKE} className="pointer-events-none" />
             </g>
           );
         })}
@@ -321,14 +326,14 @@ export default function ParticipantDashboard() {
                   <span className="flex items-center gap-2">
                     <span
                       className="inline-block h-2.5 w-5 rounded-full border-2 border-dashed"
-                      style={{ backgroundColor: `${accentColor}14`, borderColor: accentColor }}
+                       style={{ backgroundColor: ACHIEVED_FILL, borderColor: ACHIEVED_STROKE }}
                     />
                     Niveau atteint
                   </span>
                   <span className="flex items-center gap-2">
                     <span
                       className="inline-block h-2.5 w-5 rounded-full border-2 border-dashed"
-                      style={{ backgroundColor: `${primaryColor}12`, borderColor: primaryColor }}
+                       style={{ backgroundColor: EXPECTED_FILL, borderColor: EXPECTED_STROKE, opacity: 0.65 }}
                     />
                     Niveau attendu
                   </span>
