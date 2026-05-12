@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
 import ParticipantSidebar from "./Sidebar";
 import { resolveAssetUrl } from "../../lib/runtime";
+import { clearParticipantDataCache, loadParticipantBundle } from "../../lib/participantData";
 import toast from "react-hot-toast";
 import { ClipboardList, Play, RotateCcw, CheckCircle, HelpCircle, X } from "lucide-react";
 
@@ -122,17 +123,16 @@ export default function ParticipantDashboard() {
 
   useEffect(() => {
     if (!accessToken) return;
-    Promise.all([
-      fetch("/api/participant/profile", { headers: authHeaders }).then(r => r.json()),
-      fetch("/api/participant/tests", { headers: authHeaders }).then(r => r.json()),
-    ]).then(([prof, tests]) => {
-      setProfile(prof);
-      const mapped = (Array.isArray(tests) ? tests : []).map((a: any) => ({
-        ...a,
-        session: a.test?.sessions?.[0] || a.session || null,
-      }));
-      setAssignments(mapped);
-    }).catch(() => toast.error(t("loadingError")))
+    loadParticipantBundle(accessToken)
+      .then(({ profile: prof, tests }) => {
+        setProfile(prof);
+        const mapped = (Array.isArray(tests) ? tests : []).map((a: any) => ({
+          ...a,
+          session: a.test?.sessions?.[0] || a.session || null,
+        }));
+        setAssignments(mapped);
+      })
+      .catch(() => toast.error(t("loadingError")))
       .finally(() => setLoading(false));
   }, [accessToken]);
 
@@ -189,6 +189,7 @@ export default function ParticipantDashboard() {
         method: "POST", headers: authHeaders,
       });
       if (!res.ok) throw new Error();
+      clearParticipantDataCache();
       navigate("/participant/tests");
     } catch { toast.error(t("loadingError")); }
   }

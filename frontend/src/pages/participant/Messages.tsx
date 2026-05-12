@@ -4,6 +4,7 @@ import PageShell from "../../components/PageShell";
 import { useAuth } from "../../contexts/AuthContext";
 import ParticipantSidebar from "./Sidebar";
 import { resolveAssetUrl } from "../../lib/runtime";
+import { loadParticipantBundle } from "../../lib/participantData";
 import toast from "react-hot-toast";
 import { MessageSquare, Plus, X, Send, ChevronDown, ChevronUp } from "lucide-react";
 import { useI18n } from "../../contexts/I18nContext";
@@ -63,14 +64,13 @@ export default function ParticipantMessages() {
   useEffect(() => {
     if (!accessToken) return;
     Promise.all([
-      fetch("/api/participant/profile", { headers: authHeaders }).then(r => r.json()),
+      loadParticipantBundle(accessToken),
       fetch("/api/participant/messages", { headers: authHeaders }).then(r => r.ok ? r.json() : []),
-      fetch("/api/participant/tests",    { headers: authHeaders }).then(r => r.ok ? r.json() : []),
     ])
-      .then(([prof, msgs, tests]) => {
-        setProfile(prof);
+      .then(([bundle, msgs]) => {
+        setProfile(bundle.profile);
         setMessages(Array.isArray(msgs) ? msgs : []);
-        setAssignments(Array.isArray(tests) ? tests : []);
+        setAssignments(Array.isArray(bundle.tests) ? bundle.tests : []);
       })
       .catch(() => toast.error(t("loadingError")))
       .finally(() => setLoading(false));

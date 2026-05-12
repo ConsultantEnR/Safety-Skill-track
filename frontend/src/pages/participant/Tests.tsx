@@ -4,6 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext";
 import ParticipantSidebar from "./Sidebar";
 import { resolveAssetUrl } from "../../lib/runtime";
+import { clearParticipantDataCache, loadParticipantBundle } from "../../lib/participantData";
 import toast from "react-hot-toast";
 import { Play, RotateCcw, Eye, CheckCircle, Clock, Timer, ChevronDown, ChevronRight, X } from "lucide-react";
 
@@ -78,6 +79,19 @@ function getEffectiveLevel(progress: SessionProgress) {
   return progress.levelReached || (progress.correctCount > 0 ? progress.currentLevel : null);
 }
 
+function getTotalQuestionCount(competences: any[]): number {
+  const uniqueCompetences = new Map<number, number>();
+
+  for (const competence of competences || []) {
+    const subSubThemeId = Number(competence?.subSubThemeId);
+    if (!Number.isFinite(subSubThemeId) || subSubThemeId <= 0) continue;
+    const plannedCount = Number(competence?.questionCount) || 2;
+    uniqueCompetences.set(subSubThemeId, plannedCount);
+  }
+
+  return Array.from(uniqueCompetences.values()).reduce((sum, count) => sum + count, 0);
+}
+
 function formatTime(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
@@ -109,12 +123,11 @@ function TestRunner({
   const [loadingQ, setLoadingQ] = useState(true);
   const [fillAnswer, setFillAnswer] = useState("");
   const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
-  const [questionCount, setQuestionCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number | null>(session.timeRemaining ?? null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [completedProgressIds, setCompletedProgressIds] = useState<Set<number>>(
-    new Set((session.progress || []).filter(p => p.completed).map(p => p.id))
+  const [answeredQuestionsCount, setAnsweredQuestionsCount] = useState(
+    (session.progress || []).reduce((sum, progress) => sum + (progress.questionsAsked || 0), 0)
   );
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const authHeaders = {
     Authorization: `Bearer ${accessToken}`,
@@ -150,8 +163,6 @@ function TestRunner({
       setCurrentQuestion(data);
       if (data.done) {
         onComplete();
-      } else {
-        setQuestionCount(c => c + 1);
       }
     } catch (err: any) {
       toast.error(err.message || "Impossible de charger la question");
@@ -187,6 +198,7 @@ function TestRunner({
     setFeedback(null);
 
     let answerData: any = {};
+    let submissionAccepted = false;
     try {
       const answerRes = await fetch(`/api/participant/sessions/${session.id}/answer`, {
         method: "POST",
@@ -198,18 +210,18 @@ function TestRunner({
           timeRemaining: timeLeft,
         }),
       });
+      submissionAccepted = answerRes.ok;
       answerData = await answerRes.json().catch(() => ({}));
     } catch {
       toast.error("Erreur lors de l'enregistrement de la réponse");
     }
 
-    if (answerData.isCorrect !== undefined) {
-      setFeedback(answerData.isCorrect ? "correct" : "incorrect");
+    if (submissionAccepted) {
+      setAnsweredQuestionsCount((count) => count + 1);
     }
 
-    // Update progress bar when a sub-theme is completed
-    if (answerData.progressItem?.completed && answerData.progressItem?.id) {
-      setCompletedProgressIds((prev: Set<number>) => new Set([...prev, answerData.progressItem.id]));
+    if (answerData.isCorrect !== undefined) {
+      setFeedback(answerData.isCorrect ? "correct" : "incorrect");
     }
 
     if (answerData.allDone) {
@@ -222,9 +234,11 @@ function TestRunner({
     setTimeout(() => fetchNextQuestion(), delay);
   }
 
-  const totalComps = (session.progress || []).length;
-  const doneComps = completedProgressIds.size;
-  const progressPct = totalComps > 0 ? Math.round((doneComps / totalComps) * 100) : 0;
+  const totalQuestions = getTotalQuestionCount(assignment.test.competences || []);
+  const displayedQuestionNumber = currentQuestion?.done
+    ? answeredQuestionsCount
+    : Math.min(totalQuestions, answeredQuestionsCount + (currentQuestion?.question ? 1 : 0));
+  const progressPct = totalQuestions > 0 ? Math.round((displayedQuestionNumber / totalQuestions) * 100) : 0;
 
   if (loadingQ) {
     return (
@@ -292,7 +306,7 @@ function TestRunner({
         <div className="flex-1">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
             <span>{t("progression")}</span>
-            <span>{doneComps}/{totalComps} {t("domains")}</span>
+            <span>{displayedQuestionNumber}/{totalQuestions || displayedQuestionNumber || 0}</span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-500"
@@ -576,10 +590,7 @@ export default function ParticipantTests() {
     if (!accessToken) return [];
     setLoading(true);
     try {
-      const [prof, tests] = await Promise.all([
-        fetch("/api/participant/profile", { headers: authHeaders }).then(r => r.json()),
-        fetch("/api/participant/tests", { headers: authHeaders }).then(r => r.json()),
-      ]);
+      const { profile: prof, tests } = await loadParticipantBundle(accessToken);
       setProfile(prof);
       const mapped = (Array.isArray(tests) ? tests : []).map((a: any) => ({
         ...a,
@@ -616,6 +627,7 @@ export default function ParticipantTests() {
         method: "POST",
         headers: authHeaders,
       });
+      clearParticipantDataCache();
       // Démarrer immédiatement la session sans étape intermédiaire
       const startRes = await fetch(`/api/participant/tests/${a.testId}/start`, {
         method: "POST",
@@ -642,6 +654,7 @@ export default function ParticipantTests() {
         throw new Error(data.error || "Erreur");
       }
       toast.success(t("retakeRequestSent"));
+      clearParticipantDataCache();
       await loadData();
     } catch (err: any) {
       toast.error(err.message || "Impossible d'envoyer la demande");
@@ -657,6 +670,7 @@ export default function ParticipantTests() {
       });
       if (!res.ok) throw new Error((await res.json()).error || "Erreur");
       const data = await res.json();
+      clearParticipantDataCache();
       setActiveTest({ assignment: a, session: data });
     } catch (err: any) {
       toast.error(err.message || "Impossible de démarrer le test");
@@ -674,6 +688,7 @@ export default function ParticipantTests() {
       });
     } catch {}
     setActiveTest(null);
+    clearParticipantDataCache();
     const fresh = await loadData();
     const completed = fresh.find(a => a.testId === testId && a.status === "COMPLETED");
     if (completed?.session) {

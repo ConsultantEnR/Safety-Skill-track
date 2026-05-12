@@ -4,6 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext"; // ITER9
 import ParticipantSidebar from "./Sidebar";
 import { resolveAssetUrl } from "../../lib/runtime";
+import { loadParticipantBundle } from "../../lib/participantData";
 import toast from "react-hot-toast";
 import { User, Lock, Eye, EyeOff, Save, HelpCircle, X } from "lucide-react";
 
@@ -39,9 +40,8 @@ export default function ParticipantProfile() {
 
   useEffect(() => {
     if (!accessToken) return;
-    fetch("/api/participant/profile", { headers: authHeaders })
-      .then(r => r.json())
-      .then(data => setProfile(data))
+    loadParticipantBundle(accessToken)
+      .then(({ profile: data }) => setProfile(data))
       .catch(() => toast.error(t("loadingError")))
       .finally(() => setLoading(false));
   }, [accessToken]);
