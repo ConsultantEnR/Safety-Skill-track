@@ -329,6 +329,24 @@ router.get("/sessions/:sessionId/next-question", authenticate, requireRole("EMPL
 
     const { subSubThemeId } = pendingProgress;
     let currentLevel = pendingProgress.currentLevel as string;
+    const answeredQuestionCount = session.progress.reduce((sum, progress) => sum + progress.questionsAsked, 0);
+
+    if (session.askedQuestionIds.length > answeredQuestionCount) {
+      const lastAskedQuestionId = session.askedQuestionIds[session.askedQuestionIds.length - 1];
+      const pendingQuestion = await prisma.question.findUnique({
+        where: { id: lastAskedQuestionId },
+        select: QUESTION_SELECT,
+      });
+      if (pendingQuestion) {
+        return res.json({
+          question: buildQuestionPayload(pendingQuestion),
+          subSubThemeId,
+          progressItem: pendingProgress,
+          levelQuestionsAsked: pendingProgress.levelQuestionsAsked,
+          resumed: true,
+        });
+      }
+    }
 
     // ITER11: questions déjà posées dans toute la session
     const alreadyAsked: Set<number> = new Set(session.askedQuestionIds);

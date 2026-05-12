@@ -62,6 +62,7 @@ interface Profile {
 
 interface QuestionData {
   done: boolean;
+  resumed?: boolean;
   question?: {
     id: number;
     text: string;
@@ -166,31 +167,24 @@ function TestRunner({
     const q = currentQuestion.question;
 
     let userAnswer: string | number | string[] = "";
-    let correct: boolean | null = null;
 
     if (q.type === "QCM") {
       const isMultiAnswer = (q.options?.correctIndexes?.length ?? 0) > 1;
       const choices = getChoices(q.options!);
       if (isMultiAnswer) {
         userAnswer = selectedAnswers.map(idx => choices[idx]);
-        correct = null;
       } else {
         // Envoyer le texte de la réponse (pas l'index) — le backend compare les textes
         userAnswer = choices[selectedAnswer as number];
-        correct = selectedAnswer === q.options?.correctIndex;
       }
     } else if (q.type === "TRUE_FALSE") {
       userAnswer = selectedAnswer as string;
-      correct = q.expectedAnswer
-        ? String(selectedAnswer).toLowerCase() === String(q.expectedAnswer).toLowerCase()
-        : null;
     } else {
       userAnswer = fillAnswer.trim();
-      correct = null;
     }
 
     setAnswered(true);
-    if (correct !== null) setFeedback(correct ? "correct" : "incorrect");
+    setFeedback(null);
 
     let answerData: any = {};
     try {
@@ -201,7 +195,6 @@ function TestRunner({
           subSubThemeId: currentQuestion.subSubThemeId,
           questionId: q.id,
           userAnswer,
-          correct,
           timeRemaining: timeLeft,
         }),
       });
@@ -210,8 +203,7 @@ function TestRunner({
       toast.error("Erreur lors de l'enregistrement de la réponse");
     }
 
-    // Override feedback with backend ground truth (handles correctIndex-undefined edge cases)
-    if (answerData.isCorrect !== undefined && correct !== null) {
+    if (answerData.isCorrect !== undefined) {
       setFeedback(answerData.isCorrect ? "correct" : "incorrect");
     }
 
@@ -221,12 +213,12 @@ function TestRunner({
     }
 
     if (answerData.allDone) {
-      const delay = correct !== null ? 1500 : 0;
+      const delay = answerData.isCorrect !== undefined ? 1500 : 0;
       setTimeout(() => onComplete(), delay);
       return;
     }
 
-    const delay = correct !== null ? 1500 : 0;
+    const delay = answerData.isCorrect !== undefined ? 1500 : 0;
     setTimeout(() => fetchNextQuestion(), delay);
   }
 
