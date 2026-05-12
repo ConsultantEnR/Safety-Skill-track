@@ -64,7 +64,7 @@ export default function ParticipantMessages() {
   useEffect(() => {
     if (!accessToken) return;
     Promise.all([
-      loadParticipantBundle(accessToken),
+      loadParticipantBundle(accessToken, { view: "names" }),
       fetch("/api/participant/messages", { headers: authHeaders }).then(r => r.ok ? r.json() : []),
     ])
       .then(([bundle, msgs]) => {

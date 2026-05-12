@@ -661,7 +661,7 @@ export default function ParticipantTests() {
     if (!accessToken) return [];
     setLoading(true);
     try {
-      const { profile: prof, tests } = await loadParticipantBundle(accessToken);
+      const { profile: prof, tests } = await loadParticipantBundle(accessToken, { view: "tests" });
       setProfile(prof);
       const mapped = (Array.isArray(tests) ? tests : []).map((a: any) => ({
         ...a,

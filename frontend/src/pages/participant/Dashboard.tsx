@@ -171,7 +171,7 @@ export default function ParticipantDashboard() {
 
   useEffect(() => {
     if (!accessToken) return;
-    loadParticipantBundle(accessToken)
+    loadParticipantBundle(accessToken, { view: "dashboard" })
       .then(({ profile: prof, tests }) => {
         setProfile(prof);
         const mapped = (Array.isArray(tests) ? tests : []).map((a: any) => ({

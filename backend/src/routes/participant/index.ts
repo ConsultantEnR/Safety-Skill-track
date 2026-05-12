@@ -151,52 +151,119 @@ router.get("/branding/:clientId", async (req, res, next) => {
 router.get("/tests", authenticate, requireRole("EMPLOYEE"), async (req, res, next) => {
   try {
     const user = (req as any).user;
+    const view = String(req.query.view || "tests");
     const employee = await prisma.employee.findFirst({ where: { userId: user.id } });
     if (!employee) return res.status(404).json({ error: "Employé non trouvé" });
 
+    if (view === "names") {
+      const assignments = await prisma.testAssignment.findMany({
+        where: { employeeId: employee.id },
+        select: {
+          id: true,
+          test: { select: { id: true, name: true } },
+        },
+        orderBy: { assignedAt: "desc" },
+      });
+      return res.json(assignments);
+    }
+
     const assignments = await prisma.testAssignment.findMany({
       where: { employeeId: employee.id },
-      select: {
-        id: true,
-        testId: true,
-        status: true,
-        deadline: true,
-        assignedAt: true,
-        test: {
-          select: {
+      select: view === "dashboard"
+        ? {
             id: true,
-            name: true,
-            description: true,
-            timerEnabled: true,
-            timerDuration: true,
-            competences: {
+            testId: true,
+            status: true,
+            deadline: true,
+            assignedAt: true,
+            test: {
               select: {
                 id: true,
-                testId: true,
-                subSubThemeId: true,
-                subThemeId: true,
-                questionCount: true,
-                expectedLevel: true,
+                name: true,
+                description: true,
+                competences: {
+                  select: {
+                    subSubThemeId: true,
+                  },
+                },
+                sessions: {
+                  where: { employeeId: employee.id },
+                  select: {
+                    id: true,
+                    status: true,
+                    timeRemaining: true,
+                    completedAt: true,
+                    progress: {
+                      select: {
+                        subSubThemeId: true,
+                        questionsAsked: true,
+                        correctCount: true,
+                        completed: true,
+                        passed: true,
+                        currentLevel: true,
+                        levelReached: true,
+                        pointsEarned: true,
+                        maxPoints: true,
+                      },
+                    },
+                  },
+                  orderBy: { startedAt: "desc" },
+                  take: 1,
+                },
               },
             },
-            sessions: {
-              where: { employeeId: employee.id },
+          }
+        : {
+            id: true,
+            testId: true,
+            status: true,
+            deadline: true,
+            assignedAt: true,
+            test: {
               select: {
                 id: true,
-                status: true,
-                timeRemaining: true,
-                attemptNumber: true,
-                askedQuestionIds: true,
-                startedAt: true,
-                completedAt: true,
-                progress: true,
+                name: true,
+                description: true,
+                timerEnabled: true,
+                timerDuration: true,
+                competences: {
+                  select: {
+                    subSubThemeId: true,
+                    expectedLevel: true,
+                  },
+                },
+                sessions: {
+                  where: { employeeId: employee.id },
+                  select: {
+                    id: true,
+                    status: true,
+                    timeRemaining: true,
+                    attemptNumber: true,
+                    completedAt: true,
+                    progress: {
+                      select: {
+                        id: true,
+                        subSubThemeId: true,
+                        questionsAsked: true,
+                        correctCount: true,
+                        completed: true,
+                        passed: true,
+                        currentLevel: true,
+                        levelReached: true,
+                        pointsEarned: true,
+                        maxPoints: true,
+                        levelQuestionsAsked: true,
+                        levelCorrectCount: true,
+                        levelOpenAsked: true,
+                      },
+                    },
+                  },
+                  orderBy: { startedAt: "desc" },
+                  take: 1,
+                },
               },
-              orderBy: { startedAt: "desc" },
-              take: 1,
             },
           },
-        },
-      }
     });
 
     // ITER12: Enrich progress with subSubTheme labels
@@ -214,7 +281,9 @@ router.get("/tests", authenticate, requireRole("EMPLOYEE"), async (req, res, nex
     for (const sst of subSubThemes) sstMap[sst.id] = sst.label;
 
     // Include pending retake request for COMPLETED assignments
-    const completedTestIds = assignments.filter(a => a.status === "COMPLETED").map(a => a.testId);
+    const completedTestIds = view === "tests"
+      ? assignments.filter(a => a.status === "COMPLETED").map(a => a.testId)
+      : [];
     const pendingRequests = completedTestIds.length > 0
       ? await prisma.retakeRequest.findMany({
           where: { employeeId: employee.id, testId: { in: completedTestIds }, status: "PENDING" },
@@ -225,9 +294,11 @@ router.get("/tests", authenticate, requireRole("EMPLOYEE"), async (req, res, nex
 
     const enriched = assignments.map(a => ({
       ...a,
-      retakeRequest: a.status === "COMPLETED" && pendingByTestId[a.testId]
+      ...(view === "tests" ? {
+        retakeRequest: a.status === "COMPLETED" && pendingByTestId[a.testId]
         ? { id: pendingByTestId[a.testId], status: "PENDING" }
         : null,
+      } : {}),
       test: {
         ...a.test,
         sessions: a.test.sessions.map(s => ({
