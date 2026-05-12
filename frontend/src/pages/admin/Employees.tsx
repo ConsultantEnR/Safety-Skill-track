@@ -667,14 +667,19 @@ export default function AdminEmployees() {
         </div>
 
         <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
-          <div className="flex items-center gap-3 text-sm text-gray-600">
-            <span className="font-medium text-gray-800">{selectedInGroup.size} salarié(s) sélectionné(s)</span>
-            <button onClick={selectAllEmployees} className="text-blue-600 hover:text-blue-800">
-              Tout sélectionner
-            </button>
-            <button onClick={clearSelection} className="text-gray-500 hover:text-gray-700">
-              Effacer
-            </button>
+          <div className="flex flex-col gap-1 text-sm text-gray-600">
+            <div className="flex items-center gap-3">
+              <span className="font-medium text-gray-800">{selectedInGroup.size} salarié(s) sélectionné(s)</span>
+              <button onClick={selectAllEmployees} className="text-blue-600 hover:text-blue-800">
+                Tout sélectionner
+              </button>
+              <button onClick={clearSelection} className="text-gray-500 hover:text-gray-700">
+                Effacer
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Chaque salarié recevra uniquement ses propres identifiants de connexion par e-mail.
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -682,7 +687,7 @@ export default function AdminEmployees() {
               disabled={bulkSending || selectedInGroup.size === 0}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
-              {bulkSending ? "Envoi..." : "Envoyer aux sélectionnés"}
+              {bulkSending ? "Envoi..." : "Envoyer les identifiants aux sélectionnés"}
             </button>
             <button
               onClick={() => sendCredentialsToSelection(true)}
@@ -690,7 +695,7 @@ export default function AdminEmployees() {
               className="rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: branding.primaryColor }}
             >
-              {bulkSending ? "Envoi..." : "Envoyer à tous"}
+              {bulkSending ? "Envoi..." : "Envoyer les identifiants à tous"}
             </button>
           </div>
         </div>
