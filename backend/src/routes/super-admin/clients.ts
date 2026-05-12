@@ -13,6 +13,14 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 *
 
 router.get("/", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next) => {
   try {
+    const lite = req.query.lite === "1";
+    if (lite) {
+      const clients = await prisma.client.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      });
+      return res.json(clients);
+    }
     const clients = await prisma.client.findMany({
       include: {
         _count: { select: { employees: true } },

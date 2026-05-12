@@ -8,28 +8,32 @@ const router = Router();
 router.get("/", authenticate, requireRole("SUPER_ADMIN"), async (req, res, next) => {
   try {
     const tests = await prisma.test.findMany({
-      include: {
-        competences: true,
-        _count: { select: { assignments: true } },
-        // ITER7: inclure les clients assignés pour permettre le filtrage par entreprise
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        timerEnabled: true,
+        timerDuration: true,
+        createdAt: true,
+        competences: {
+          select: {
+            id: true,
+            subSubThemeId: true,
+            subThemeId: true,
+            questionCount: true,
+            expectedLevel: true,
+          },
+        },
         clientTests: {
-          include: { client: { select: { id: true, name: true } } }
-        }
+          select: {
+            clientId: true,
+            client: { select: { id: true, name: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" }
     });
-
-    const enriched = await Promise.all(tests.map(async (test) => {
-      const subSubThemeIds = test.competences
-        .map(c => c.subSubThemeId)
-        .filter((id): id is number => id !== null);
-      const questionCount = subSubThemeIds.length > 0
-        ? await prisma.question.count({ where: { subSubThemeId: { in: subSubThemeIds } } })
-        : 0;
-      return { ...test, totalQuestions: questionCount };
-    }));
-
-    res.json(enriched);
+    res.json(tests);
   } catch (err) { next(err); }
 });
 

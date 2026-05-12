@@ -21,6 +21,41 @@ interface Stats {
 // ITER9: Client for filter dropdown
 interface Client { id: number; name: string; }
 
+function StatCard({
+  title,
+  value,
+  icon,
+  iconBg,
+  iconColor,
+  onClick,
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  onClick?: () => void;
+}) {
+  const clickable = Boolean(onClick);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`bg-white rounded-xl shadow-sm p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-1 text-left w-full ${
+        clickable ? "cursor-pointer" : "cursor-default"
+      }`}
+    >
+      <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: iconBg }}>
+        <div style={{ color: iconColor }}>{icon}</div>
+      </div>
+      <div>
+        <p className="text-sm text-gray-500">{title}</p>
+        <p className="text-3xl font-bold" style={{ color: iconColor }}>{value}</p>
+      </div>
+    </button>
+  );
+}
+
 export default function SuperAdminDashboard() {
   const { accessToken } = useAuth();
   const branding = useBranding();
@@ -41,7 +76,7 @@ export default function SuperAdminDashboard() {
   // ITER9: Fetch client list for filter
   useEffect(() => {
     if (!accessToken) return;
-    fetch("/api/super-admin/clients", { headers: { Authorization: `Bearer ${accessToken}` } })
+    fetch("/api/super-admin/clients?lite=1", { headers: { Authorization: `Bearer ${accessToken}` } })
       .then(r => r.ok ? r.json() : [])
       .then((data: any[]) => setClients(data.map((c: any) => ({ id: c.id, name: c.name }))))
       .catch(() => {});
@@ -89,64 +124,53 @@ export default function SuperAdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
           {/* Card 1 — Entreprises clientes */}
-          <div className="bg-white rounded-xl shadow-sm p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: `${branding.primaryColor}15` }}>
-              <Building2 size={28} style={{ color: branding.primaryColor }} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">{t("clientCompanies")}</p>
-              <p className="text-3xl font-bold" style={{ color: branding.primaryColor }}>{stats.clientCount}</p>
-            </div>
-          </div>
+          <StatCard
+            title={t("clientCompanies")}
+            value={stats.clientCount}
+            icon={<Building2 size={28} />}
+            iconBg={`${branding.primaryColor}15`}
+            iconColor={branding.primaryColor}
+            onClick={() => navigate("/super-admin/clients")}
+          />
 
           {/* Card 2 — Salariés inscrits */}
-          <div className="bg-white rounded-xl shadow-sm p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: `${branding.accentColor}30` }}>
-              <Users size={28} style={{ color: branding.accentColor }} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">{t("registeredEmployees")}</p>
-              <p className="text-3xl font-bold" style={{ color: branding.primaryColor }}>{stats.employeeCount}</p>
-            </div>
-          </div>
+          <StatCard
+            title={t("registeredEmployees")}
+            value={stats.employeeCount}
+            icon={<Users size={28} />}
+            iconBg={`${branding.accentColor}30`}
+            iconColor={branding.primaryColor}
+          />
 
           {/* ITER9: Card 3 — Tests assignés */}
-          <div className="bg-white rounded-xl shadow-sm p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: `${branding.primaryColor}15` }}>
-              <ClipboardList size={28} style={{ color: branding.primaryColor }} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">{t("assignedTests")}</p>
-              <p className="text-3xl font-bold" style={{ color: branding.primaryColor }}>{stats.assignedCount}</p>
-            </div>
-          </div>
+          <StatCard
+            title={t("assignedTests")}
+            value={stats.assignedCount}
+            icon={<ClipboardList size={28} />}
+            iconBg={`${branding.primaryColor}15`}
+            iconColor={branding.primaryColor}
+            onClick={() => navigate("/super-admin/tests")}
+          />
 
           {/* ITER9: Card 4 — Tests en cours */}
-          <div className="bg-white rounded-xl shadow-sm p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: `${branding.accentColor}35` }}>
-              <Clock size={28} style={{ color: branding.accentColor }} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">{t("testsInProgress")}</p>
-              <p className="text-3xl font-bold" style={{ color: branding.primaryColor }}>{stats.inProgressCount}</p>
-            </div>
-          </div>
+          <StatCard
+            title={t("testsInProgress")}
+            value={stats.inProgressCount}
+            icon={<Clock size={28} />}
+            iconBg={`${branding.accentColor}35`}
+            iconColor={branding.primaryColor}
+            onClick={() => navigate("/super-admin/tests")}
+          />
 
           {/* ITER9: Card 5 — Tests terminés */}
-          <div className="bg-white rounded-xl shadow-sm p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: `${branding.primaryColor}15` }}>
-              <CheckCircle size={28} style={{ color: branding.primaryColor }} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">{t("testsCompleted")}</p>
-              <p className="text-3xl font-bold" style={{ color: branding.primaryColor }}>{stats.completedCount}</p>
-            </div>
-          </div>
+          <StatCard
+            title={t("testsCompleted")}
+            value={stats.completedCount}
+            icon={<CheckCircle size={28} />}
+            iconBg={`${branding.primaryColor}15`}
+            iconColor={branding.primaryColor}
+            onClick={() => navigate("/super-admin/tests")}
+          />
 
           {/* ITER9: Card 6 — Réponses à analyser (clickable) */}
           <div

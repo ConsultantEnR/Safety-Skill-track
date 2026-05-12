@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import PageShell from "../../components/PageShell";
 import Sidebar from "../../components/Sidebar";
 import { useAuth } from "../../contexts/AuthContext";
@@ -313,14 +313,43 @@ export default function SuperAdminQuestions() {
     const n = new Set(set); n.has(id) ? n.delete(id) : n.add(id); setter(n);
   }
 
-  function getQuestionsForSST(sstId: number, lvlFilter?: string, typeFilter?: string) {
-    return questions.filter(q => {
-      if (q.subSubThemeId !== sstId) return false;
-      if (lvlFilter && q.level !== lvlFilter) return false;
-      if (typeFilter && q.type !== typeFilter) return false;
-      return true;
-    });
-  }
+  const questionCountsBySst = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const question of questions) {
+      counts.set(question.subSubThemeId, (counts.get(question.subSubThemeId) || 0) + 1);
+    }
+    return counts;
+  }, [questions]);
+
+  const questionCountsBySubTheme = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const theme of themes) {
+      for (const subTheme of theme.subThemes) {
+        const total = subTheme.subSubThemes.reduce((sum, sst) => sum + (questionCountsBySst.get(sst.id) || 0), 0);
+        counts.set(subTheme.id, total);
+      }
+    }
+    return counts;
+  }, [themes, questionCountsBySst]);
+
+  const questionCountsByTheme = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const theme of themes) {
+      const total = theme.subThemes.reduce((sum, subTheme) => sum + (questionCountsBySubTheme.get(subTheme.id) || 0), 0);
+      counts.set(theme.id, total);
+    }
+    return counts;
+  }, [themes, questionCountsBySubTheme]);
+
+  const questionsBySst = useMemo(() => {
+    const grouped = new Map<number, Question[]>();
+    for (const question of questions) {
+      const list = grouped.get(question.subSubThemeId);
+      if (list) list.push(question);
+      else grouped.set(question.subSubThemeId, [question]);
+    }
+    return grouped;
+  }, [questions]);
 
   async function handleAddTheme(e: React.FormEvent) {
     e.preventDefault();
@@ -603,7 +632,7 @@ export default function SuperAdminQuestions() {
                     {openThemes.has(theme.id) ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
                     <span className="font-semibold text-gray-900">{tl(theme)}</span>
                     <span className="ml-auto text-xs text-gray-400">
-                      {questions.filter(q => theme.subThemes.some(st => st.subSubThemes.some(sst => sst.id === q.subSubThemeId))).length} question{questions.filter(q => theme.subThemes.some(st => st.subSubThemes.some(sst => sst.id === q.subSubThemeId))).length !== 1 ? "s" : ""}
+                      {questionCountsByTheme.get(theme.id) || 0} question{(questionCountsByTheme.get(theme.id) || 0) !== 1 ? "s" : ""}
                     </span>
                   </button>
 
@@ -614,15 +643,20 @@ export default function SuperAdminQuestions() {
                         {openSubThemes.has(st.id) ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
                         <span className="text-sm font-medium text-gray-700">{tl(st)}</span>
                         <span className="ml-auto text-xs text-gray-400">
-                          {questions.filter(q => st.subSubThemes.some(sst => sst.id === q.subSubThemeId)).length}
+                          {questionCountsBySubTheme.get(st.id) || 0}
                         </span>
                       </button>
 
                       {openSubThemes.has(st.id) && st.subSubThemes.map(sst => {
-                        const sstQCount = questions.filter(q => q.subSubThemeId === sst.id).length;
+                        const sstBaseQuestions = questionsBySst.get(sst.id) || [];
+                        const sstQCount = questionCountsBySst.get(sst.id) || 0;
                         const lvlF = filterLevel[sst.id] || "";
                         const typeF = filterType[sst.id] || "";
-                        const sstQuestions = getQuestionsForSST(sst.id, lvlF || undefined, typeF || undefined);
+                        const sstQuestions = sstBaseQuestions.filter(q => {
+                          if (lvlF && q.level !== lvlF) return false;
+                          if (typeF && q.type !== typeF) return false;
+                          return true;
+                        });
 
                         // Group by level
                         const byLevel: Record<string, Question[]> = {};
